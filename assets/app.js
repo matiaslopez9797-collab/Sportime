@@ -199,7 +199,7 @@ function renderCategories() {
   replace($('#category-nav'), categories.map(category => node('button', {
     type: 'button', class: state.category === category ? 'active' : '', text: category,
     onclick: () => { state.category = category; location.hash = '#catalogo'; renderRoute(); }
-  })), node('a', { class: 'button danger', href: '#arrepentimiento', text: 'BOTÓN DE ARREPENTIMIENTO' }));
+  })));
 }
 
 function productImage(product, className = '') {
@@ -282,14 +282,16 @@ function renderCloudError() {
 }
 
 function renderStaticPage(kind) {
+  const defaultPrivacy = 'SPORTIME utiliza los datos solicitados para administrar cuentas, reservas, pedidos, entregas y atención posventa. Podés solicitar acceso, rectificación o supresión mediante los canales de contacto publicados. Las credenciales se gestionan con Supabase Auth y nunca se guardan como texto dentro de la página.';
+  const defaultTerms = `Vendedor: ${state.settings.business_name || state.settings.store_name || 'SPORTIME'}${state.settings.cuit ? ` · CUIT ${state.settings.cuit}` : ''}. Los precios, el stock y el total se validan al confirmar el pedido. La compra queda sujeta a la forma de entrega, pago, cambios y devoluciones informadas en esta tienda.`;
   const data = {
     contacto: ['Contacto', `WhatsApp: ${state.settings.whatsapp || 'a configurar'} · Email: ${state.settings.email || 'a configurar'} · ${state.settings.address || ''}`],
     envios: ['Envíos y retiros', state.settings.shipping_policy || 'Podés retirar en el local o coordinar un envío. El costo y el plazo se confirman antes del despacho.'],
     cambios: ['Cambios y devoluciones', state.settings.returns_policy || 'Conservá el producto sin uso, con etiquetas y comprobante. Contactanos para coordinar el cambio o la devolución.'],
-    privacidad: ['Privacidad y datos personales', 'SPORTIME utiliza los datos solicitados para administrar cuentas, reservas, pedidos, entregas y atención posventa. Podés solicitar acceso, rectificación o supresión mediante los canales de contacto publicados. Las credenciales se gestionan con Supabase Auth y nunca se guardan como texto dentro de la página.'],
-    terminos: ['Términos de compra', `Vendedor: ${state.settings.business_name || state.settings.store_name || 'SPORTIME'}${state.settings.cuit ? ` · CUIT ${state.settings.cuit}` : ''}. Los precios, el stock y el total se validan al confirmar el pedido. La compra queda sujeta a la forma de entrega, pago, cambios y devoluciones informadas en esta tienda.`]
+    privacidad: ['Privacidad y datos personales', state.settings.privacy_policy || defaultPrivacy],
+    terminos: ['Términos de compra', state.settings.terms_policy || defaultTerms]
   }[kind] || ['Información', 'Sección no disponible.'];
-  replace($('#app'), node('section', { class: 'section' }, node('div', { class: 'panel' }, [node('h1', { text: data[0] }), node('p', { text: data[1] }), kind === 'contacto' && node('button', { class: 'button primary', text: 'ABRIR WHATSAPP', onclick: openWhatsApp })])));
+  replace($('#app'), node('section', { class: 'section' }, node('div', { class: 'panel' }, [node('h1', { text: data[0] }), node('p', { class: 'legal-copy', text: data[1] }), kind === 'contacto' && node('button', { class: 'button primary', text: 'ABRIR WHATSAPP', onclick: openWhatsApp })])));
 }
 
 function renderWithdrawal() {
@@ -421,7 +423,8 @@ function openAccount(mode = 'login') {
     replace(root, authHeader('Cuenta conectada'), node('h2', { text: `Hola, ${state.profile.full_name || 'cliente'}` }),
       node('p', { class: 'meta', text: state.profile.email }),
       node('div', { class: 'button-row' }, [
-        node('button', { class: 'button primary', type: 'button', text: isStaff() ? 'ABRIR ADMINISTRACIÓN' : 'VER MI CUENTA', onclick: () => { dialog.close(); location.hash = isStaff() ? '#admin' : '#cuenta'; } }),
+        node('button', { class: 'button primary', type: 'button', text: isStaff() ? 'ABRIR GESTIÓN EMPRESARIAL' : 'VER MI CUENTA', onclick: () => { dialog.close(); if (isStaff()) location.assign(new URL('./gestion.html', location.href).href); else location.hash = '#cuenta'; } }),
+        ...(isStaff() ? [node('button', { class: 'button secondary', type: 'button', text: 'ADMINISTRAR ECOMMERCE', onclick: () => { dialog.close(); location.hash = '#admin'; } })] : []),
         node('button', { class: 'button secondary', type: 'button', text: 'CERRAR SESIÓN', onclick: logout })
       ]));
   } else renderAuthForm(mode);
@@ -528,14 +531,14 @@ function renderNewPassword() {
 }
 
 async function afterLogin() {
-  await Promise.all([loadProfile(), loadCatalog(false)]);
+  await Promise.all([loadProfile(), loadCatalog(false), loadSettings()]);
   await loadCart();
   renderCategories(); renderRoute();
 }
 
 async function logout() {
   loading(true, 'Cerrando sesión…');
-  try { await api.signOut(); state.profile = null; state.cart = []; state.orders = []; $('#account-label').textContent = 'Ingresar'; $('#account-dialog').close(); location.hash = '#inicio'; renderRoute(); toast('Sesión cerrada.', 'success'); }
+  try { await api.signOut(); state.profile = null; state.cart = []; state.orders = []; await loadSettings(); $('#account-label').textContent = 'Ingresar'; $('#account-dialog').close(); location.hash = '#inicio'; renderRoute(); toast('Sesión cerrada.', 'success'); }
   finally { loading(false); }
 }
 
@@ -701,8 +704,12 @@ async function adminProducts(root) {
   await loadCatalog(true);
   if (!state.selectedAdminProduct || !state.adminProducts.some(item => item.id === state.selectedAdminProduct)) state.selectedAdminProduct = state.adminProducts[0]?.id || null;
   const selected = state.adminProducts.find(item => item.id === state.selectedAdminProduct);
-  const list = node('div', { class: 'panel admin-list' }, state.adminProducts.map(product => node('button', { type: 'button', class: product.id === state.selectedAdminProduct ? 'active' : '', onclick: () => { state.selectedAdminProduct = product.id; adminProducts(root); } }, [node('b', { text: product.name }), node('div', { class: 'meta', text: `${product.sku} · ${money(productPrice(product))} · ${totalStock(product)} u.` })])));
-  replace(root, adminTitle('Productos web', 'El catálogo maestro proviene de la PC.'), node('div', { class: 'admin-product-grid' }, [list, selected ? productEditor(selected, root) : node('div', { class: 'empty-state', text: 'No hay productos sincronizados.' })]));
+  const published = state.adminProducts.filter(product => product.published).length;
+  const list = node('div', { class: 'panel admin-list' }, state.adminProducts.map(product => node('button', { type: 'button', class: product.id === state.selectedAdminProduct ? 'active' : '', onclick: () => { state.selectedAdminProduct = product.id; adminProducts(root); } }, [
+    node('div', { class: 'admin-product-line' }, [node('b', { text: product.name }), node('span', { class: `publication-state ${product.published ? 'published' : ''}`, text: product.published ? 'PUBLICADO' : 'BORRADOR' })]),
+    node('div', { class: 'meta', text: `${product.sku} · ${money(productPrice(product))} · ${totalStock(product)} u.` })
+  ])));
+  replace(root, adminTitle('Productos web', `${published} publicados de ${state.adminProducts.length}. Los artículos nuevos llegan como borrador para que puedas revisar su presentación.`), node('div', { class: 'admin-product-grid' }, [list, selected ? productEditor(selected, root) : node('div', { class: 'empty-state', text: 'No hay productos sincronizados.' })]));
 }
 
 function productEditor(product, root) {
@@ -814,8 +821,10 @@ async function adminSettings(root) {
     labeledInput('Alias', { name: 'transfer_alias', value: settings.transfer_alias || '', maxlength: '80' }),
     labeledInput('CBU/CVU', { name: 'transfer_cbu', value: settings.transfer_cbu || '', maxlength: '30' }),
     labeledInput('Horas de reserva en efectivo', { name: 'cash_reservation_hours', type: 'number', min: '1', max: '168', value: settings.cash_reservation_hours || 48 }),
-    labeledInput('Política de envíos', { name: 'shipping_policy', value: settings.shipping_policy || '', maxlength: '1000', class: 'full' }),
-    labeledInput('Política de cambios', { name: 'returns_policy', value: settings.returns_policy || '', maxlength: '1000', class: 'full' })
+    node('label', { class: 'field full' }, [node('span', { text: 'Política de envíos' }), node('textarea', { name: 'shipping_policy', rows: '5', maxlength: '5000', text: settings.shipping_policy || '' })]),
+    node('label', { class: 'field full' }, [node('span', { text: 'Política de cambios y devoluciones' }), node('textarea', { name: 'returns_policy', rows: '5', maxlength: '5000', text: settings.returns_policy || '' })]),
+    node('label', { class: 'field full' }, [node('span', { text: 'Política de privacidad' }), node('textarea', { name: 'privacy_policy', rows: '7', maxlength: '5000', text: settings.privacy_policy || '' })]),
+    node('label', { class: 'field full' }, [node('span', { text: 'Términos de compra' }), node('textarea', { name: 'terms_policy', rows: '7', maxlength: '5000', text: settings.terms_policy || '' })])
   ]));
   form.append(message, node('button', { class: 'button primary', type: 'submit', text: 'GUARDAR CONFIGURACIÓN' }));
   replace(root, adminTitle('Tienda', 'Solo se publican los campos comerciales necesarios.'), node('div', { class: 'panel' }, form));
