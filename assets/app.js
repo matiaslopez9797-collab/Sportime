@@ -215,15 +215,22 @@ function productCard(product) {
     product.featured && node('span', { class: 'badge', text: 'DESTACADO' })
   ]);
   const available = totalStock(product) > 0;
+  const regularPrice = product.listPrice > 0 ? product.listPrice : productPrice(product);
+  const cashPrice = product.cashPrice > 0 ? product.cashPrice : productPrice(product);
   return node('article', { class: 'product-card' }, [
     node('button', { class: 'product-image', type: 'button', 'aria-label': `Ver ${product.name}`, onclick: () => openProduct(product.id) }, [productImage(product), badges]),
     node('div', { class: 'product-body' }, [
       node('span', { class: 'product-brand', text: product.brand || 'SPORTIME' }),
       node('h3', { text: product.name }),
       node('div', { class: 'meta', text: [product.category, product.subcategory].filter(Boolean).join(' · ') }),
-      node('div', { class: 'price' }, [money(productPrice(product)), product.cashPrice > 0 && product.listPrice > product.cashPrice ? node('span', { class: 'old-price', text: money(product.listPrice) }) : null]),
-      node('div', { class: `stock-status ${available ? '' : 'out'}`, text: available ? 'Disponible para compra' : 'Sin stock disponible' }),
-      node('button', { class: 'button primary', type: 'button', disabled: !available, text: available ? 'VER PRODUCTO' : 'SIN STOCK', onclick: () => openProduct(product.id) })
+      node('div', { class: 'price', text: money(regularPrice) }),
+      node('div', { class: 'payment-options' }, [
+        node('div', { class: 'payment-pill cash', text: `${money(cashPrice)} en efectivo` }),
+        node('div', { class: 'payment-pill transfer', text: `${money(cashPrice)} por transferencia` }),
+        product.installments > 0 && node('div', { class: 'payment-installment' }, [node('span', { text: 'En 3 cuotas sin interés de' }), node('b', { text: money(product.installments) })])
+      ]),
+      node('div', { class: `stock-status ${available ? '' : 'out'}`, text: available ? 'Stock disponible' : 'Sin stock disponible' }),
+      node('button', { class: 'button buy-button', type: 'button', disabled: !available, text: available ? 'Comprar' : 'Sin stock', onclick: () => openProduct(product.id) })
     ])
   ]);
 }
@@ -881,12 +888,13 @@ function renderRoute() {
   if (route === 'cuenta') return renderAccountPage();
   if (route === 'admin') return renderAdmin();
   if (route === 'arrepentimiento') return renderWithdrawal();
-  if (['contacto','envios','cambios','privacidad','terminos'].includes(route)) return renderStaticPage(route);
+  if (['contacto','envios','cambios','privacidad','terminos','como-comprar'].includes(route)) return renderStaticPage(route === 'como-comprar' ? 'envios' : route);
   location.hash = '#inicio';
 }
 
 function bindShell() {
   $('#search-form').addEventListener('submit', event => { event.preventDefault(); state.query = $('#search-input').value.trim().slice(0,80); state.category = 'Todos'; location.hash = '#catalogo'; renderRoute(); });
+  $('#newsletter-form')?.addEventListener('submit', event => { event.preventDefault(); event.currentTarget.reset(); toast('Gracias por sumarte a la comunidad SPORTIME.', 'success'); });
   document.addEventListener('click', event => {
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action === 'account') openAccount();
