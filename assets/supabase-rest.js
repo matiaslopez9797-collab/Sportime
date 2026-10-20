@@ -92,7 +92,7 @@ export class SportimeApi extends EventTarget {
       this.setSession(session);
       return session;
     }).catch(error => {
-      this.setSession(null);
+      if (error?.status !== 429) this.setSession(null);
       throw error;
     }).finally(() => { this.refreshPromise = null; });
     return this.refreshPromise;
