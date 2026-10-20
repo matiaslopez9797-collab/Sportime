@@ -130,7 +130,7 @@ const catalogSelect = [
 ].join(',');
 
 async function loadCatalog(admin = false) {
-  const query = { select: catalogSelect, source_id: 'not.is.null', order: 'name.asc' };
+  const query = { select: catalogSelect, order: 'name.asc' };
   if (!admin) { query.active = 'eq.true'; query.status = 'eq.published'; }
   const rows = await api.rest('products', { query, token: Boolean(api.session) });
   const products = rows.map(mapProduct).filter(product => admin || product.published);
