@@ -8,20 +8,22 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://yvelpgtmmrkiewogumtd.supabase.co; connect-src 'self' https://yvelpgtmmrkiewogumtd.supabase.co; font-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests">
   <title>SPORTIME | Tienda online</title>
-  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="./assets/sportime-logo-color.png" type="image/png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./assets/styles.css?v=1.3">
-  <script type="module" src="./assets/app.js?v=1.3"></script>
+  <link rel="stylesheet" href="./assets/styles.css?v=2.0">
+  <script type="module" src="./assets/app.js?v=2.0"></script>
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
   <div id="connection-bar" class="connection-bar" role="status" aria-live="polite">Conectando con SPORTIME…</div>
 
-  <div class="account-strip"><div class="shell"><button type="button" data-action="account">Iniciar sesión</button><span>|</span><button type="button" data-action="account">Crear cuenta</button></div></div>
+  <div class="account-strip">
+    <div class="shell"><button type="button" data-action="account">Iniciar sesión</button><span>|</span><button type="button" data-action="account">Crear cuenta</button></div>
+  </div>
   <header class="site-header">
     <div class="header-main shell">
       <a class="brand" href="#inicio" aria-label="SPORTIME, ir al inicio">
-        <span>SPOR</span><strong>TIME</strong><small>by loli &amp; rodri</small>
+        <img src="./assets/sportime-logo-color.png" alt="SPORTIME by Loli &amp; Rodri">
       </a>
       <form id="search-form" class="search" role="search">
         <label class="sr-only" for="search-input">Buscar productos</label>
@@ -34,7 +36,7 @@
       </nav>
     </div>
     <nav id="category-nav" class="category-nav shell" aria-label="Categorías"></nav>
-    <div class="shipping-strip">ENVÍO GRATIS HOY · Consultá zonas y monto mínimo · Pedí antes de las 11 hs</div>
+    <div class="shipping-strip">STOCK ACTUALIZADO EN TIEMPO REAL · COMPRA SEGURA · ENVÍOS Y RETIRO EN LOCAL</div>
   </header>
 
   <main id="contenido" tabindex="-1">
@@ -54,13 +56,13 @@
 
   <footer class="site-footer">
     <div class="shell footer-grid">
-      <div><h2>SEGUINOS</h2><div class="social-links"><a href="#" aria-label="Instagram">◎</a><a href="#" aria-label="Facebook">f</a></div><p id="legal-identity"></p></div>
-      <div><h2>PRODUCTOS</h2><a href="#catalogo">Indumentaria y calzado</a><a href="#catalogo">Suplementos</a><a href="#catalogo">Shakers</a><a href="#catalogo">Accesorios</a></div>
-      <div><h2>MÁS INFO</h2><a href="#como-comprar">Cómo comprar</a><a href="#cambios">Política de devolución</a><a href="#envios">Envíos y retiros</a><a href="#privacidad">Privacidad</a><a href="#terminos">Términos</a><a href="#arrepentimiento">Arrepentimiento</a></div>
-      <div><h2>CONTACTANOS</h2><a href="#contacto">WhatsApp y atención SPORTIME</a><p>Compra segura con precios y stock validados.</p></div>
-      <div class="newsletter"><h2>UNITE A LA COMUNIDAD</h2><p>Recibí novedades, lanzamientos y promociones.</p><form id="newsletter-form"><label class="sr-only" for="newsletter-email">Email</label><input id="newsletter-email" type="email" placeholder="Email" required><button type="submit">Enviar</button></form></div>
+      <div class="footer-brand-column"><img class="footer-logo" src="./assets/sportime-logo-color.png" alt="SPORTIME"><p>Indumentaria, calzado, suplementos y accesorios deportivos.</p><p id="legal-identity"></p><div class="social-links"><a href="#contacto" aria-label="Instagram">◎</a><a href="#contacto" aria-label="Facebook">f</a></div></div>
+      <div><h2>PRODUCTOS</h2><a href="#catalogo">Indumentaria y calzado</a><a href="#catalogo">Suplementos</a><a href="#catalogo">Shakers y botellas</a><a href="#catalogo">Accesorios</a></div>
+      <div><h2>AYUDA</h2><a href="#contacto">Contacto</a><a href="#envios">Envíos y retiros</a><a href="#cambios">Cambios y devoluciones</a><a href="#privacidad">Privacidad</a><a href="#terminos">Términos de compra</a><a href="#arrepentimiento">Arrepentimiento</a></div>
+      <div><h2>COMPRA SEGURA</h2><p>Precios, variantes y disponibilidad se validan nuevamente antes de confirmar.</p><a href="#contacto">Consultar por WhatsApp</a></div>
+      <div class="newsletter"><h2>COMUNIDAD SPORTIME</h2><p>Recibí novedades, lanzamientos y promociones.</p><form id="newsletter-form"><label class="sr-only" for="newsletter-email">Email</label><input id="newsletter-email" type="email" placeholder="Tu email" required><button type="submit">SUMARME</button></form></div>
     </div>
-    <div class="shell payment-brands" aria-label="Medios de pago aceptados"><span>VISA</span><span>Mastercard</span><span>AMEX</span><span>Maestro</span><span>CABAL</span><span>NARANJA X</span><span>Mercado Pago</span><span>Transferencia</span></div>
+    <div class="shell payment-brands" aria-label="Medios de pago"><span>VISA</span><span>Mastercard</span><span>AMEX</span><span>Maestro</span><span>CABAL</span><span>NARANJA X</span><span>Mercado Pago</span><span>Transferencia</span></div>
   </footer>
 
   <dialog id="account-dialog" class="modal">
