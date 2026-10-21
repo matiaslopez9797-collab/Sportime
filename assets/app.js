@@ -225,12 +225,12 @@ function productCard(product) {
       node('div', { class: 'meta', text: [product.category, product.subcategory].filter(Boolean).join(' · ') }),
       node('div', { class: 'price', text: money(regularPrice) }),
       node('div', { class: 'payment-options' }, [
-        node('div', { class: 'payment-pill cash', text: `${money(cashPrice)} en efectivo` }),
-        node('div', { class: 'payment-pill transfer', text: `${money(cashPrice)} por transferencia` }),
-        product.installments > 0 && node('div', { class: 'payment-installment' }, [node('span', { text: 'En 3 cuotas sin interés de' }), node('b', { text: money(product.installments) })])
+        node('div', { class: 'payment-pill cash' }, [node('small', { text: 'PRECIO EFECTIVO' }), node('b', { text: money(cashPrice) })]),
+        node('div', { class: 'payment-pill transfer' }, [node('small', { text: 'TRANSFERENCIA' }), node('b', { text: money(cashPrice) })]),
+        product.installments > 0 && node('div', { class: 'payment-installment' }, [node('span', { text: '3 cuotas sin interés de' }), node('b', { text: money(product.installments) })])
       ]),
-      node('div', { class: `stock-status ${available ? '' : 'out'}`, text: available ? 'Stock disponible' : 'Sin stock disponible' }),
-      node('button', { class: 'button buy-button', type: 'button', disabled: !available, text: available ? 'Comprar' : 'Sin stock', onclick: () => openProduct(product.id) })
+      node('div', { class: `stock-status ${available ? '' : 'out'}`, text: available ? 'Disponible para compra' : 'Sin stock disponible' }),
+      node('button', { class: 'button buy-button', type: 'button', disabled: !available, text: available ? 'COMPRAR' : 'SIN STOCK', onclick: () => openProduct(product.id) })
     ])
   ]);
 }
@@ -888,7 +888,7 @@ function renderRoute() {
   if (route === 'cuenta') return renderAccountPage();
   if (route === 'admin') return renderAdmin();
   if (route === 'arrepentimiento') return renderWithdrawal();
-  if (['contacto','envios','cambios','privacidad','terminos','como-comprar'].includes(route)) return renderStaticPage(route === 'como-comprar' ? 'envios' : route);
+  if (['contacto','envios','cambios','privacidad','terminos'].includes(route)) return renderStaticPage(route);
   location.hash = '#inicio';
 }
 
