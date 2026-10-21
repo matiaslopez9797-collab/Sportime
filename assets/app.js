@@ -113,7 +113,7 @@ function mapProduct(row) {
     id: row.id, sku: String(row.sku || ''), name: String(details?.web_title || row.name || 'Producto'),
     baseName: String(row.name || ''), brand: String(row.brand || ''), category: String(row.category || 'Sin categoría'),
     subcategory: String(row.subcategory || ''), listPrice: Number(row.list_price) || 0,
-    cashPrice: Number(row.cash_price) || 0, installments: Number(row.installments_3) || 0,
+    cashPrice: Number(row.cash_price) || 0, transferPrice: Number(details?.extra_data?.transfer_price) || Number(row.cash_price) || Number(row.list_price) || 0, installments: Number(row.installments_3) || 0,
     active: row.active !== false, published: details?.is_published !== false && row.status === 'published',
     description: String(details?.description || ''), shortDescription: String(details?.short_description || ''),
     slug: String(details?.slug || ''), featured: Boolean(details?.featured), isNew: Boolean(details?.new_product), hot: Boolean(details?.hot),
@@ -226,7 +226,7 @@ function productCard(product) {
       node('div', { class: 'price', text: money(regularPrice) }),
       node('div', { class: 'payment-options' }, [
         node('div', { class: 'payment-pill cash' }, [node('small', { text: 'PRECIO EFECTIVO' }), node('b', { text: money(cashPrice) })]),
-        node('div', { class: 'payment-pill transfer' }, [node('small', { text: 'TRANSFERENCIA' }), node('b', { text: money(cashPrice) })]),
+        node('div', { class: 'payment-pill transfer' }, [node('small', { text: 'TRANSFERENCIA' }), node('b', { text: money(product.transferPrice) })]),
         product.installments > 0 && node('div', { class: 'payment-installment' }, [node('span', { text: '3 cuotas sin interés de' }), node('b', { text: money(product.installments) })])
       ]),
       node('div', { class: `stock-status ${available ? '' : 'out'}`, text: available ? 'Disponible para compra' : 'Sin stock disponible' }),
@@ -712,11 +712,12 @@ async function adminProducts(root) {
   if (!state.selectedAdminProduct || !state.adminProducts.some(item => item.id === state.selectedAdminProduct)) state.selectedAdminProduct = state.adminProducts[0]?.id || null;
   const selected = state.adminProducts.find(item => item.id === state.selectedAdminProduct);
   const published = state.adminProducts.filter(product => product.published).length;
-  const list = node('div', { class: 'panel admin-list' }, state.adminProducts.map(product => node('button', { type: 'button', class: product.id === state.selectedAdminProduct ? 'active' : '', onclick: () => { state.selectedAdminProduct = product.id; adminProducts(root); } }, [
+  const list = node('div', { class: 'panel admin-list' }, state.adminProducts.map(product => node('button', { type: 'button', class: product.id === state.selectedAdminProduct ? 'active' : '', dataset: { adminSearch: normalized([product.name,product.sku,product.brand,product.category].join(' ')) }, onclick: () => { state.selectedAdminProduct = product.id; adminProducts(root); } }, [
     node('div', { class: 'admin-product-line' }, [node('b', { text: product.name }), node('span', { class: `publication-state ${product.published ? 'published' : ''}`, text: product.published ? 'PUBLICADO' : 'BORRADOR' })]),
     node('div', { class: 'meta', text: `${product.sku} · ${money(productPrice(product))} · ${totalStock(product)} u.` })
   ])));
-  replace(root, adminTitle('Productos web', `${published} publicados de ${state.adminProducts.length}. Los artículos nuevos llegan como borrador para que puedas revisar su presentación.`), node('div', { class: 'admin-product-grid' }, [list, selected ? productEditor(selected, root) : node('div', { class: 'empty-state', text: 'No hay productos sincronizados.' })]));
+  const search = node('input', { type: 'search', placeholder: 'Buscar por nombre, código, marca o categoría', oninput: event => { const q=normalized(event.target.value); list.querySelectorAll('[data-admin-search]').forEach(button=>button.hidden=q&&!button.dataset.adminSearch.includes(q)); } });
+  replace(root, adminTitle('Productos web', `${published} publicados de ${state.adminProducts.length}. Los artículos nuevos llegan como borrador para que puedas revisar su presentación.`), node('div', { class: 'admin-products-toolbar' }, search), node('div', { class: 'admin-product-grid' }, [list, selected ? productEditor(selected, root) : node('div', { class: 'empty-state', text: 'No hay productos sincronizados.' })]));
 }
 
 function productEditor(product, root) {
@@ -724,15 +725,18 @@ function productEditor(product, root) {
   const form = node('form', { class: 'form', onsubmit: async event => {
     event.preventDefault(); const data = new FormData(event.currentTarget); loading(true, 'Guardando producto web…');
     try {
-      const body = { product_id: product.id, web_title: data.get('web_title'), slug: data.get('slug'), description: data.get('description'), short_description: data.get('short_description'), is_published: data.get('published') === 'on', featured: data.get('featured') === 'on', new_product: data.get('new_product') === 'on', hot: data.get('hot') === 'on', size_guide_url: data.get('size_guide_url') || null, video_url: data.get('video_url') || null, seo_title: data.get('seo_title') || null, seo_description: data.get('seo_description') || null, extra_data: product.extraData || {} };
+      const extraData = { ...(product.extraData || {}), transfer_price: Number(data.get('transfer_price')) || 0 };
+      const body = { product_id: product.id, web_title: data.get('web_title'), slug: data.get('slug'), description: data.get('description'), short_description: data.get('short_description'), is_published: data.get('published') === 'on', featured: data.get('featured') === 'on', new_product: data.get('new_product') === 'on', hot: data.get('hot') === 'on', size_guide_url: data.get('size_guide_url') || null, video_url: data.get('video_url') || null, seo_title: data.get('seo_title') || null, seo_description: data.get('seo_description') || null, extra_data: extraData };
+      await api.rest('products', { method: 'PATCH', query: { id: `eq.${product.id}` }, body: { list_price: Number(data.get('card_price')) || 0, cash_price: Number(data.get('cash_price')) || 0 } });
       await api.rest('product_web_details', { method: 'POST', query: { on_conflict: 'product_id' }, body, prefer: 'resolution=merge-duplicates,return=representation' });
       await Promise.all([loadCatalog(true), loadCatalog(false)]); message.className = 'form-success'; message.textContent = 'Producto web actualizado.'; renderCategories(); toast('Cambios publicados.', 'success');
     } catch (error) { message.textContent = friendlyError(error); }
     finally { loading(false); }
   } }, [
-    node('div', { class: 'notice' }, [node('b', { text: 'Datos bloqueados por seguridad' }), node('p', { text: `${product.baseName} · SKU ${product.sku} · ${product.brand} · ${product.category} · ${money(productPrice(product))} · Stock ${totalStock(product)}` })]),
+    node('div', { class: 'notice' }, [node('b', { text: 'Datos sincronizados' }), node('p', { text: `${product.baseName} · SKU ${product.sku} · ${product.brand} · ${product.category} · Stock ${totalStock(product)}` })]),
+    node('div', { class: 'form-grid' }, [labeledInput('Precio tarjeta / lista', { name: 'card_price', type: 'number', min: '0', step: '0.01', value: product.listPrice }), labeledInput('Precio transferencia', { name: 'transfer_price', type: 'number', min: '0', step: '0.01', value: product.transferPrice }), labeledInput('Precio efectivo', { name: 'cash_price', type: 'number', min: '0', step: '0.01', value: product.cashPrice })]),
     labeledInput('Título para la web', { name: 'web_title', value: product.name, maxlength: '160', required: true }),
-    labeledInput('URL amigable', { name: 'slug', value: product.slug, maxlength: '180', pattern: '[a-z0-9-]+' }),
+    labeledInput('URL amigable (ejemplo: remera-deportiva-negra)', { name: 'slug', value: product.slug, maxlength: '180', pattern: '[a-z0-9-]+' }),
     node('label', { class: 'field' }, [node('span', { text: 'Descripción corta' }), node('textarea', { name: 'short_description', rows: '2', maxlength: '320', text: product.shortDescription })]),
     node('label', { class: 'field' }, [node('span', { text: 'Descripción completa' }), node('textarea', { name: 'description', rows: '8', maxlength: '8000', text: product.description })]),
     node('div', { class: 'choice-list' }, [
@@ -747,12 +751,14 @@ function productEditor(product, root) {
     node('label', { class: 'field' }, [node('span', { text: 'Descripción SEO' }), node('textarea', { name: 'seo_description', rows: '2', maxlength: '170', text: product.seoDescription })]),
     message, node('button', { class: 'button primary', type: 'submit', text: 'GUARDAR PRESENTACIÓN WEB' })
   ]);
-  const upload = node('input', { type: 'file', accept: CONFIG.allowedImageTypes.join(','), onchange: event => uploadProductImage(product, event.target.files?.[0], root) });
-  return node('div', {}, [node('div', { class: 'panel' }, [node('h2', { text: product.name }), form]), node('div', { class: 'panel' }, [node('h2', { text: 'Imágenes' }), node('p', { class: 'meta', text: 'JPG, PNG o WebP. Máximo 8 MB. SVG deshabilitado por seguridad.' }), upload, node('div', { class: 'image-admin-grid' }, product.images.map(image => node('div', { class: 'image-admin' }, [node('img', { src: image.url, alt: image.alt || '' }), node('button', { class: 'button danger', type: 'button', text: 'ELIMINAR', onclick: () => deleteProductImage(product, image, root) })])))])]);
+  const upload = node('input', { type: 'file', accept: CONFIG.allowedImageTypes.join(','), multiple: true, onchange: async event => { const files=[...event.target.files].slice(0,Math.max(0,8-product.images.length)); for(const file of files) await uploadProductImage(product,file,root,false); await adminProducts(root); } });
+  return node('div', {}, [node('div', { class: 'panel' }, [node('h2', { text: product.name }), form]), node('div', { class: 'panel' }, [node('h2', { text: `Imágenes (${product.images.length}/8)` }), node('p', { class: 'helper-text', text: 'Podés cargar hasta 8 imágenes por producto. Se guardan en el almacenamiento privado administrado de Supabase y la primera queda como portada. JPG, PNG o WebP, máximo 8 MB cada una.' }), upload, node('div', { class: 'image-admin-grid' }, product.images.map(image => node('div', { class: 'image-admin' }, [node('img', { src: image.url, alt: image.alt || '' }), node('button', { class: 'button danger', type: 'button', text: 'ELIMINAR', onclick: () => deleteProductImage(product, image, root) })])))])]);
 }
 
-async function uploadProductImage(product, file, root) {
+async function uploadProductImage(product, file, root, refresh=true) {
   if (!file) return;
+  const currentProduct=state.adminProducts.find(item=>item.id===product.id)||product;
+  if (currentProduct.images.length >= 8) return toast('El máximo es de 8 imágenes por producto.', 'error');
   if (!CONFIG.allowedImageTypes.includes(file.type)) return toast('Formato no permitido. Usá JPG, PNG o WebP.', 'error');
   if (file.size > CONFIG.maxUploadBytes) return toast('La imagen supera los 8 MB.', 'error');
   loading(true, 'Subiendo imagen…');
@@ -761,8 +767,8 @@ async function uploadProductImage(product, file, root) {
     const path = `products/${product.id}/${crypto.randomUUID()}.${extension}`;
     await api.upload('sportime-products', path, file);
     const publicUrl = api.publicObjectUrl('sportime-products', path);
-    await api.rest('product_images', { method: 'POST', body: { product_id: product.id, storage_path: path, public_url: publicUrl, alt_text: product.name, is_primary: product.images.length === 0, sort_order: product.images.length }, prefer: 'return=representation' });
-    await Promise.all([loadCatalog(true), loadCatalog(false)]); toast('Imagen subida.', 'success'); await adminProducts(root);
+    await api.rest('product_images', { method: 'POST', body: { product_id: product.id, storage_path: path, public_url: publicUrl, alt_text: product.name, is_primary: currentProduct.images.length === 0, sort_order: currentProduct.images.length }, prefer: 'return=representation' });
+    await Promise.all([loadCatalog(true), loadCatalog(false)]); toast('Imagen subida.', 'success'); if(refresh) await adminProducts(root);
   } catch (error) { toast(friendlyError(error), 'error'); }
   finally { loading(false); }
 }
@@ -789,10 +795,24 @@ async function adminOrders(root) {
       catch (error) { toast(friendlyError(error), 'error'); await adminOrders(root); }
       finally { loading(false); }
     } }, ['pending','confirmed','preparing','shipped','delivered','cancelled'].map(value => node('option', { value, selected: order.status === value, text: orderStatus(value) })));
-    body.append(node('tr', {}, [node('td', {}, [node('b', { text: `#${order.order_number}` }), node('div', { class: 'meta', text: `${order.order_items?.length || 0} líneas` })]), node('td', {}, [node('b', { text: order.customer_name }), node('div', { class: 'meta', text: order.customer_email || '' })]), node('td', { text: money(order.total) }), node('td', { text: order.payment_method || '-' }), node('td', {}, select), node('td', { text: formatDate(order.created_at) })]));
+    body.append(node('tr', {}, [node('td', {}, [node('b', { text: `#${order.order_number}` }), node('div', { class: 'meta', text: `${order.order_items?.length || 0} líneas` }), node('button', { class:'button secondary', type:'button', text:'VER RESUMEN', onclick:()=>openOrderSummary(order) })]), node('td', {}, [node('b', { text: order.customer_name }), node('div', { class: 'meta', text: order.customer_email || '' })]), node('td', { text: money(order.total) }), node('td', { text: order.payment_method || '-' }), node('td', {}, select), node('td', { text: formatDate(order.created_at) })]));
   });
   table.append(body);
   replace(root, adminTitle('Pedidos', 'Los cambios de estado y reintegros de stock se validan en Supabase.'), node('div', { class: 'panel table-wrap' }, state.adminOrders.length ? table : node('div', { class: 'empty-state', text: 'Todavía no hay pedidos.' })));
+}
+
+function openOrderSummary(order){
+  const delivery=order.delivery_data||{};
+  const dialog=node('dialog',{class:'modal'},node('div',{class:'modal-card'},[
+    node('button',{class:'close-button',type:'button',text:'×',onclick:()=>dialog.close()}),
+    node('h2',{text:`Pedido #${order.order_number}`}),
+    node('div',{class:'order-detail-grid'},[
+      node('div',{class:'order-detail-block'},[node('h3',{text:'Cliente'}),node('p',{text:order.customer_name||'-'}),node('p',{class:'meta',text:[order.customer_email,order.customer_phone].filter(Boolean).join(' · ')||'-'})]),
+      node('div',{class:'order-detail-block'},[node('h3',{text:'Entrega'}),node('p',{text:delivery.delivery==='shipping'?'Envío a domicilio':'Retiro en local'}),node('p',{class:'meta',text:delivery.address||order.shipping_address||'Sin dirección informada'}),node('p',{class:'meta',text:delivery.notes||order.notes||''})]),
+      node('div',{class:'order-detail-block full'},[node('h3',{text:'Productos'}),...(order.order_items||[]).map(item=>node('div',{class:'summary-line'},[node('span',{text:`${item.quantity} × ${item.product_name} · ${item.variant_name||''}`}),node('b',{text:money(item.line_total)})])),node('div',{class:'summary-total'},[node('span',{text:'Total'}),node('b',{text:money(order.total)})])])
+    ])
+  ]));
+  dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
 }
 
 async function adminCustomers(root) {
@@ -834,7 +854,9 @@ async function adminSettings(root) {
     node('label', { class: 'field full' }, [node('span', { text: 'Términos de compra' }), node('textarea', { name: 'terms_policy', rows: '7', maxlength: '5000', text: settings.terms_policy || '' })])
   ]));
   form.append(message, node('button', { class: 'button primary', type: 'submit', text: 'GUARDAR CONFIGURACIÓN' }));
-  replace(root, adminTitle('Tienda', 'Solo se publican los campos comerciales necesarios.'), node('div', { class: 'panel' }, form));
+  const bannerUpload=node('input',{type:'file',accept:CONFIG.allowedImageTypes.join(','),onchange:async event=>{const file=event.target.files?.[0];if(!file)return;if(!CONFIG.allowedImageTypes.includes(file.type)||file.size>CONFIG.maxUploadBytes)return toast('Usá JPG, PNG o WebP de hasta 8 MB.','error');loading(true,'Subiendo banner…');try{const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'})[file.type],path=`banners/${crypto.randomUUID()}.${ext}`;await api.upload('sportime-products',path,file);form.elements.hero_image.value=api.publicObjectUrl('sportime-products',path);toast('Banner cargado. Presioná Guardar configuración.','success')}catch(error){toast(friendlyError(error),'error')}finally{loading(false)}}});
+  const bannerPanel=node('div',{class:'panel'},[node('h2',{text:'Banner principal'}),node('p',{class:'helper-text',text:'Subí una imagen horizontal JPG, PNG o WebP. Recomendado: 1920 × 700 px. Se guarda en Supabase y queda aplicada cuando guardás la configuración.'}),bannerUpload,settings.hero_image&&node('img',{class:'banner-preview',src:safeUrl(settings.hero_image),alt:'Banner actual'})]);
+  replace(root, adminTitle('Tienda', 'Datos comerciales, medios de pago y presentación de la vidriera.'), bannerPanel, node('div', { class: 'panel' }, form));
 }
 
 async function adminCoupons(root) {
@@ -882,6 +904,7 @@ function renderRoute() {
   if (state.loading) return renderLoading();
   if (state.cloudError) return renderCloudError();
   const route = (location.hash || '#inicio').slice(1).split('?')[0];
+  document.body.className=`route-${route||'inicio'}`;
   if (route === 'inicio' || !route) return renderHome();
   if (route === 'catalogo') return renderCatalog();
   if (route === 'checkout') return renderCheckout();
