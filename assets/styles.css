@@ -48,8 +48,10 @@ dialog{border:0;padding:0;background:transparent}.modal::backdrop,.drawer::backd
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 /* SPORTIME ecommerce identity v2 */
-:root{--green:#9dff00;--green-dark:#4d9200;--sport-black:#050706;--sport-card:#fff}
+:root{--green:#b7e43a;--green-dark:#648b12;--sport-black:#111713;--sport-card:#fff;--radius:22px}
 .account-strip{background:var(--green);color:#050706;font-size:11px;font-weight:850}.account-strip .shell{height:28px;display:flex;align-items:center;justify-content:flex-end;gap:9px}.account-strip button{border:0;background:transparent;color:#050706;padding:0;font-size:11px;font-weight:900}
+.connection-bar.ok{display:none}.brand{background:#fff;border-radius:18px;padding:7px 14px}.site-header{background:#111713}.panel,.product-card,.kpi{border-radius:22px}.admin-nav{background:#172019;border-radius:24px}.admin-list button{border-radius:13px;margin-bottom:4px}.admin-list button.active{background:#eef8d5}.button,.search,.search button,input,select,textarea{border-radius:14px}.route-admin .withdrawal-access,.route-checkout .withdrawal-access{display:none}
+.admin-products-toolbar{display:flex;gap:10px;margin-bottom:12px}.admin-products-toolbar input{width:100%;border:1px solid var(--line);padding:12px 14px}.order-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.order-detail-block{background:#f5f7f5;border-radius:16px;padding:15px}.order-detail-block.full{grid-column:1/-1}.order-detail-block h3{margin:0 0 9px}.banner-preview{width:100%;max-height:240px;object-fit:cover;border-radius:18px;margin-top:10px;background:#eef2ef}.helper-text{font-size:12px;color:var(--muted);line-height:1.5}
 .site-header{background:rgba(5,7,6,.98);color:#fff;border-bottom:1px solid #283022;backdrop-filter:blur(14px)}
 .header-main{min-height:126px;grid-template-columns:minmax(210px,1fr) minmax(310px,560px) minmax(210px,1fr)}
 .brand{justify-self:start;width:min(330px,100%);height:96px;align-items:center}.brand img{width:100%;height:100%;object-fit:contain;object-position:left center}
