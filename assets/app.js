@@ -150,7 +150,14 @@ async function loadSettings() {
 
 async function loadProfile() {
   state.profile = api.user ? await api.profile() : null;
-  $('#account-label').textContent = state.profile?.full_name?.split(' ')[0] || 'Ingresar';
+  updateAccountHeader();
+}
+
+function updateAccountHeader() {
+  const loggedIn = Boolean(state.profile);
+  $('#account-label').textContent = loggedIn ? (state.profile.full_name?.split(' ')[0] || 'Mi cuenta') : 'Iniciar sesión';
+  $('#account-create-link').hidden = loggedIn;
+  $('#account-divider').hidden = loggedIn;
 }
 
 async function loadCart() {
@@ -199,11 +206,19 @@ function setCloudStatus(ok, message) {
 function renderCategories() {
   const detected = [...new Set(state.products.map(productCategory).filter(Boolean))];
   const preferred = ['INDUMENTARIA / CALZADO', 'SHAKER', 'SUPLEMENTOS', 'ACCESORIOS'];
-  const categories = ['Todos', ...preferred.filter(category => detected.includes(category)), ...detected.filter(category => !preferred.includes(category)).sort()];
-  replace($('#category-nav'), categories.map(category => node('button', {
+  const categories = [...preferred.filter(category => detected.includes(category)), ...detected.filter(category => !preferred.includes(category)).sort()];
+  const categoryButton = category => node('button', {
     type: 'button', class: state.category === category ? 'active' : '', text: categoryLabel(category),
     onclick: () => { state.category = category; location.hash = '#catalogo'; renderRoute(); }
-  })));
+  });
+  if (categories.length <= 4) return replace($('#category-nav'), ['Todos', ...categories].map(categoryButton));
+
+  const selected = state.category !== 'Todos' && categories.includes(state.category) ? categoryLabel(state.category) : '';
+  const menu = node('details', { class: 'category-menu' }, [
+    node('summary', { class: selected ? 'active' : '', text: selected ? `Categorías · ${selected}` : 'Categorías' }),
+    node('div', { class: 'category-menu-panel' }, categories.map(categoryButton))
+  ]);
+  replace($('#category-nav'), categoryButton('Todos'), menu);
 }
 
 function categoryLabel(category) {
@@ -591,7 +606,7 @@ async function afterLogin() {
 
 async function logout() {
   loading(true, 'Cerrando sesión…');
-  try { await api.signOut(); state.profile = null; state.cart = []; state.orders = []; await loadSettings(); $('#account-label').textContent = 'Ingresar'; $('#account-dialog').close(); location.hash = '#inicio'; renderRoute(); toast('Sesión cerrada.', 'success'); }
+  try { await api.signOut(); state.profile = null; state.cart = []; state.orders = []; await loadSettings(); updateAccountHeader(); $('#account-dialog').close(); location.hash = '#inicio'; renderRoute(); toast('Sesión cerrada.', 'success'); }
   finally { loading(false); }
 }
 
@@ -626,7 +641,7 @@ async function renderAccountPage() {
     event.preventDefault(); const data = new FormData(event.currentTarget); loading(true, 'Guardando tus datos…');
     try {
       await api.rpc('update_my_sportime_profile', { p_full_name: data.get('full_name'), p_phone: data.get('phone'), p_dni: data.get('dni'), p_birth_date: data.get('birth_date') || null, p_address: data.get('address') });
-      await loadProfile(); formMessage.className = 'form-success'; formMessage.textContent = 'Datos actualizados.'; $('#account-label').textContent = state.profile.full_name?.split(' ')[0] || 'Cuenta';
+      await loadProfile(); formMessage.className = 'form-success'; formMessage.textContent = 'Datos actualizados.';
     } catch (error) { formMessage.className = 'form-error'; formMessage.textContent = friendlyError(error); }
     finally { loading(false); }
   } }, [inputFromProfile('Nombre y apellido','full_name','text',true), inputFromProfile('Email','email','email'), inputFromProfile('WhatsApp','phone','tel',true), inputFromProfile('DNI','dni','text',true), inputFromProfile('Fecha de nacimiento','birth_date','date'), inputFromProfile('Dirección','address'), formMessage, node('button', { class: 'button primary', type: 'submit', text: 'GUARDAR DATOS' })]);
@@ -1084,8 +1099,9 @@ function bindShell() {
   $('#newsletter-form')?.addEventListener('submit', event => { event.preventDefault(); event.currentTarget.reset(); toast('Gracias por sumarte a la comunidad SPORTIME.', 'success'); });
   document.addEventListener('click', event => {
     if (!event.target.closest('#search-form')) hideSearchSuggestions();
-    const action = event.target.closest('[data-action]')?.dataset.action;
-    if (action === 'account') openAccount();
+    const actionTarget = event.target.closest('[data-action]');
+    const action = actionTarget?.dataset.action;
+    if (action === 'account') openAccount(actionTarget.dataset.accountMode || 'login');
     if (action === 'cart') openCart();
     const close = event.target.closest('[data-close]')?.dataset.close;
     if (close) document.getElementById(close)?.close();
