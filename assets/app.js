@@ -210,6 +210,11 @@ function categoryLabel(category) {
   return category === 'INDUMENTARIA / CALZADO' ? 'INDUMENTARIA' : category;
 }
 
+function publicHeroText(value) {
+  const text = String(value || 'Suplementos, indumentaria y accesorios deportivos.');
+  return text.replace(/indumentaria,\s*suplementos,\s*calzado\s*y\s*accesorios deportivos\.?/i, 'Suplementos, indumentaria y accesorios deportivos.');
+}
+
 function productCategory(product) {
   return String(product.category || 'Sin categoría').replace(/\s+/g, ' ').trim().toUpperCase();
 }
@@ -263,7 +268,7 @@ function productCard(product) {
     node('div', { class: 'product-body' }, [
       node('span', { class: 'product-brand', text: product.brand || 'SPORTIME' }),
       node('h3', { text: product.name }),
-      node('div', { class: 'meta', text: [product.category, product.subcategory].filter(Boolean).join(' · ') }),
+      node('div', { class: 'meta', text: [categoryLabel(productCategory(product)), product.subcategory].filter(Boolean).join(' · ') }),
       node('div', { class: 'price', text: money(regularPrice) }),
       node('div', { class: 'payment-options' }, [
         node('div', { class: 'payment-pill cash' }, [node('small', { text: 'PRECIO EFECTIVO' }), node('b', { text: money(cashPrice) })]),
@@ -290,7 +295,7 @@ function renderHome() {
   const hero = node('section', { class: 'hero' }, node('div', { class: 'hero-content' }, [
     node('span', { class: 'eyebrow', text: state.settings.hero_kicker || 'TIENDA OFICIAL' }),
     node('h1', { text: state.settings.hero_title || 'Entrená fuerte. Elegí mejor.' }),
-    node('p', { text: state.settings.hero_text || 'Productos, talles y disponibilidad conectados en tiempo real con SPORTIME.' }),
+    node('p', { text: publicHeroText(state.settings.hero_text) }),
     node('div', { class: 'button-row' }, [
       node('a', { class: 'button primary', href: '#catalogo', text: state.settings.hero_button || 'VER CATÁLOGO' }),
       node('button', { class: 'button ghost', type: 'button', text: 'CONSULTAR POR WHATSAPP', onclick: openWhatsApp })
@@ -391,7 +396,7 @@ function openProduct(id) {
       node('div', {}, [node('div', { class: 'detail-media' }, productImage(product)), product.sizeGuide && node('a', { class: 'button secondary', href: product.sizeGuide, target: '_blank', rel: 'noopener noreferrer', text: 'Ver guía de talles' })]),
       node('div', { class: 'detail-info' }, [
         node('span', { class: 'product-brand', text: product.brand || 'SPORTIME' }), node('h1', { text: product.name }),
-        node('div', { class: 'meta', text: `SKU ${product.sku} · ${product.category}` }), node('div', { class: 'price', text: money(productPrice(product)) }),
+        node('div', { class: 'meta', text: `SKU ${product.sku} · ${categoryLabel(productCategory(product))}` }), node('div', { class: 'price', text: money(productPrice(product)) }),
         product.installments > 0 && node('p', { class: 'meta', text: `También disponible en 3 cuotas de ${money(product.installments)}` }),
         node('h3', { text: 'Elegí una variante' }), node('div', { class: 'variant-list' }, variantButtons.length ? variantButtons : node('span', { class: 'meta', text: 'Sin variantes disponibles' })),
         node('div', { class: 'stock-status', text: selected?.stock > 0 ? 'Disponible para compra' : 'Sin stock disponible' }),
