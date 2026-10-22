@@ -848,7 +848,7 @@ function productEditor(product, root) {
     try {
       const extraData = { ...(product.extraData || {}), transfer_price: Number(data.get('transfer_price')) || 0 };
       const body = { product_id: product.id, web_title: data.get('web_title'), slug: data.get('slug'), description: data.get('description'), short_description: data.get('short_description'), is_published: data.get('published') === 'on', featured: data.get('featured') === 'on', new_product: data.get('new_product') === 'on', hot: data.get('hot') === 'on', size_guide_url: data.get('size_guide_url') || null, video_url: data.get('video_url') || null, seo_title: data.get('seo_title') || null, seo_description: data.get('seo_description') || null, extra_data: extraData };
-      await api.rest('products', { method: 'PATCH', query: { id: `eq.${product.id}` }, body: { list_price: Number(data.get('card_price')) || 0, cash_price: Number(data.get('cash_price')) || 0 } });
+      await api.rpc('admin_update_sportime_product', { p_product_id: product.id, p_product: { list_price: Number(data.get('card_price')) || 0, transfer_price: Number(data.get('transfer_price')) || 0, cash_price: Number(data.get('cash_price')) || 0 } });
       await api.rest('product_web_details', { method: 'POST', query: { on_conflict: 'product_id' }, body, prefer: 'resolution=merge-duplicates,return=representation' });
       await Promise.all([loadCatalog(true), loadCatalog(false)]); message.className = 'form-success'; message.textContent = 'Producto web actualizado.'; renderCategories(); toast('Cambios publicados.', 'success');
     } catch (error) { message.textContent = friendlyError(error); }
