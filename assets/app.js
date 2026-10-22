@@ -7,7 +7,8 @@ const state = {
   products: [], cart: [], profile: null, settings: {}, orders: [],
   query: '', category: 'Todos', loading: true, cloudError: '',
   adminTab: 'dashboard', adminProducts: [], adminOrders: [], adminProfiles: [],
-  coupons: [], selectedAdminProduct: null, lastCatalogLoad: 0
+  coupons: [], selectedAdminProduct: null, lastCatalogLoad: 0,
+  adminMenuOpen: false
 };
 
 function node(tag, props = {}, children = []) {
@@ -653,9 +654,19 @@ function renderCheckoutSuccess(result, payment) {
   replace($('#app'), node('section', { class: 'section' }, node('div', { class: 'panel' }, [node('span', { class: 'eyebrow', text: 'PEDIDO REGISTRADO' }), node('h1', { text: `Pedido #${result.order_number}` }), node('p', { text: `Total confirmado: ${money(result.total)}` }), result.discount > 0 && node('p', { text: `Descuento aplicado: ${money(result.discount)} (${result.coupon_code})` }), transfer, node('div', { class: 'button-row' }, [node('a', { class: 'button primary', href: '#cuenta', text: 'VER MIS COMPRAS' }), node('a', { class: 'button secondary', href: '#catalogo', text: 'SEGUIR COMPRANDO' })])])));
 }
 
+function setAdminMenu(open) {
+  state.adminMenuOpen = Boolean(open);
+  document.body.classList.toggle('admin-menu-open', state.adminMenuOpen);
+  document.querySelector('.admin-nav')?.classList.toggle('open', state.adminMenuOpen);
+  document.querySelector('.admin-backdrop')?.classList.toggle('show', state.adminMenuOpen);
+  document.querySelector('.admin-menu-button')?.setAttribute('aria-expanded', String(state.adminMenuOpen));
+}
 function adminNav() {
   const tabs = [['dashboard','Resumen'],['products','Productos web'],['orders','Pedidos'],['withdrawals','Arrepentimientos'],['customers','Clientes'],['settings','Tienda'],['coupons','Cupones']];
-  return node('nav', { class: 'admin-nav', 'aria-label': 'Administración' }, [node('h2', { text: 'ADMINISTRACIÓN' }), ...tabs.map(([id,label]) => node('button', { class: state.adminTab === id ? 'active' : '', type: 'button', text: label, onclick: () => { state.adminTab = id; renderAdmin(); } }))]);
+  return node('nav', { class: `admin-nav ${state.adminMenuOpen ? 'open' : ''}`, 'aria-label': 'Administración', id: 'admin-navigation' }, [
+    node('div', { class: 'admin-nav-head' }, [node('h2', { text: 'ADMINISTRACIÓN' }), node('button', { class: 'admin-nav-close', type: 'button', 'aria-label': 'Cerrar menú', text: '×', onclick: () => setAdminMenu(false) })]),
+    ...tabs.map(([id,label]) => node('button', { class: state.adminTab === id ? 'active' : '', type: 'button', text: label, onclick: () => { state.adminTab = id; state.adminMenuOpen = false; document.body.classList.remove('admin-menu-open'); renderAdmin(); } }))
+  ]);
 }
 
 async function renderAdmin() {
@@ -663,7 +674,12 @@ async function renderAdmin() {
   if (!isStaff()) { location.hash = '#cuenta'; toast('Tu cuenta no tiene permisos administrativos.', 'error'); return; }
   const root = $('#app');
   const content = node('section', { class: 'admin-main' }, node('div', { class: 'notice', text: 'Cargando administración…' }));
-  replace(root, node('div', { class: 'admin-layout' }, [adminNav(), content]));
+  const mobileBar = node('div', { class: 'admin-mobile-bar' }, [
+    node('button', { class: 'admin-menu-button', type: 'button', 'aria-controls': 'admin-navigation', 'aria-expanded': String(state.adminMenuOpen), onclick: () => setAdminMenu(!state.adminMenuOpen) }, [node('span', { 'aria-hidden': 'true', text: '☰' }), node('span', { text: 'MENÚ DE ADMINISTRACIÓN' })]),
+    node('b', { text: ({dashboard:'Resumen',products:'Productos',orders:'Pedidos',withdrawals:'Arrepentimientos',customers:'Clientes',settings:'Tienda',coupons:'Cupones'})[state.adminTab] || 'Administración' })
+  ]);
+  const backdrop = node('button', { class: `admin-backdrop ${state.adminMenuOpen ? 'show' : ''}`, type: 'button', 'aria-label': 'Cerrar menú', onclick: () => setAdminMenu(false) });
+  replace(root, mobileBar, node('div', { class: 'admin-layout' }, [adminNav(), backdrop, content]));
   try {
     if (state.adminTab === 'dashboard') await adminDashboard(content);
     if (state.adminTab === 'products') await adminProducts(content);
@@ -927,6 +943,7 @@ function bindShell() {
   });
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
   window.addEventListener('hashchange', renderRoute);
+  window.addEventListener('resize', () => { if (innerWidth > 760 && state.adminMenuOpen) setAdminMenu(false); });
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible' && Date.now() - state.lastCatalogLoad > CONFIG.catalogRefreshMs) {
       try { await loadCatalog(false); await loadCart(); renderCategories(); renderRoute(); } catch { /* se conserva el estado visible */ }
@@ -949,3 +966,4 @@ async function bootstrap() {
 
 bindShell();
 bootstrap();
+
