@@ -10,8 +10,8 @@
   <title>SPORTIME | Tienda online</title>
   <link rel="icon" href="./assets/sportime-logo-color.png" type="image/png">
   <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="./assets/styles.css?v=2.6">
-  <script type="module" src="./assets/app.js?v=2.6"></script>
+  <link rel="stylesheet" href="./assets/styles.css?v=2.7">
+  <script type="module" src="./assets/app.js?v=2.7"></script>
 </head>
 <body>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
@@ -27,8 +27,9 @@
       </a>
       <form id="search-form" class="search" role="search">
         <label class="sr-only" for="search-input">Buscar productos</label>
-        <input id="search-input" name="q" type="search" autocomplete="off" maxlength="80" placeholder="Buscar por producto, marca o categoría">
+        <input id="search-input" name="q" type="search" autocomplete="off" maxlength="80" placeholder="Buscar por producto o marca" aria-autocomplete="list" aria-controls="search-suggestions" aria-expanded="false">
         <button type="submit">Buscar</button>
+        <div id="search-suggestions" class="search-suggestions" role="listbox" aria-label="Productos sugeridos" hidden></div>
       </form>
       <nav class="header-actions" aria-label="Acciones de la cuenta">
         <button class="icon-button" type="button" data-action="account"><span aria-hidden="true">◉</span><span id="account-label">Ingresar</span></button>
