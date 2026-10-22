@@ -93,7 +93,7 @@ async function confirmAction(title, message) {
 
 function isStaff() { return ['admin', 'operator'].includes(state.profile?.role); }
 function isOwner() { return state.profile?.role === 'admin'; }
-function productPrice(product) { return Number(product.cashPrice) > 0 ? Number(product.cashPrice) : Number(product.listPrice) || 0; }
+function productPrice(product) { return Number(product.listPrice) > 0 ? Number(product.listPrice) : Number(product.cashPrice) || 0; }
 function totalStock(product) { return product.variants.reduce((sum, item) => sum + Math.max(0, Number(item.stock) || 0), 0); }
 function cartQuantity() { return state.cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0); }
 function cartTotal() { return state.cart.reduce((sum, item) => sum + productPrice(item.product) * item.quantity, 0); }
@@ -112,7 +112,7 @@ function mapProduct(row) {
     primary: Boolean(item.is_primary), sort: Number(item.sort_order) || 0
   })).filter(item => item.url).sort((a, b) => Number(b.primary) - Number(a.primary) || a.sort - b.sort);
   return {
-    id: row.id, sku: String(row.sku || ''), name: String(details?.web_title || row.name || 'Producto'),
+    id: row.id, sku: String(row.sku || ''), model: String(row.internal_code || row.sku || ''), name: String(details?.web_title || row.name || 'Producto'),
     baseName: String(row.name || ''), brand: String(row.brand || ''), category: String(row.category || 'Sin categoría'),
     subcategory: String(row.subcategory || ''), listPrice: Number(row.list_price) || 0,
     cashPrice: Number(row.cash_price) || 0, transferPrice: Number(details?.extra_data?.transfer_price) || Number(row.cash_price) || Number(row.list_price) || 0, installments: Number(row.installments_3) || 0,
@@ -125,7 +125,7 @@ function mapProduct(row) {
 }
 
 const catalogSelect = [
-  'id','sku','name','category','subcategory','brand','list_price','cash_price','installments_3','status','active','source_id',
+  'id','sku','internal_code','name','category','subcategory','brand','list_price','cash_price','installments_3','status','active','source_id',
   'product_variants(id,name,size,color,barcode,stock,active,sort_order)',
   'product_images(id,storage_path,public_url,alt_text,is_primary,sort_order)',
   'product_web_details(web_title,slug,description,short_description,is_published,featured,new_product,hot,size_guide_url,video_url,seo_title,seo_description,extra_data)'
@@ -268,7 +268,7 @@ function productCard(product) {
     node('div', { class: 'product-body' }, [
       node('span', { class: 'product-brand', text: product.brand || 'SPORTIME' }),
       node('h3', { text: product.name }),
-      node('div', { class: 'meta', text: [categoryLabel(productCategory(product)), product.subcategory].filter(Boolean).join(' · ') }),
+      node('div', { class: 'meta', text: [`Modelo ${product.model}`, categoryLabel(productCategory(product)), product.subcategory].filter(Boolean).join(' · ') }),
       node('div', { class: 'price', text: money(regularPrice) }),
       node('div', { class: 'payment-options' }, [
         node('div', { class: 'payment-pill cash' }, [node('small', { text: 'PRECIO EFECTIVO' }), node('b', { text: money(cashPrice) })]),
@@ -396,7 +396,7 @@ function openProduct(id) {
       node('div', {}, [node('div', { class: 'detail-media' }, productImage(product)), product.sizeGuide && node('a', { class: 'button secondary', href: product.sizeGuide, target: '_blank', rel: 'noopener noreferrer', text: 'Ver guía de talles' })]),
       node('div', { class: 'detail-info' }, [
         node('span', { class: 'product-brand', text: product.brand || 'SPORTIME' }), node('h1', { text: product.name }),
-        node('div', { class: 'meta', text: `SKU ${product.sku} · ${categoryLabel(productCategory(product))}` }), node('div', { class: 'price', text: money(productPrice(product)) }),
+        node('div', { class: 'meta', text: `Modelo ${product.model} · ${categoryLabel(productCategory(product))}` }), node('div', { class: 'price', text: money(productPrice(product)) }),
         product.installments > 0 && node('p', { class: 'meta', text: `También disponible en 3 cuotas de ${money(product.installments)}` }),
         node('h3', { text: 'Elegí una variante' }), node('div', { class: 'variant-list' }, variantButtons.length ? variantButtons : node('span', { class: 'meta', text: 'Sin variantes disponibles' })),
         node('div', { class: 'stock-status', text: selected?.stock > 0 ? 'Disponible para compra' : 'Sin stock disponible' }),
@@ -787,11 +787,11 @@ async function adminProducts(root) {
   if (!state.selectedAdminProduct || !state.adminProducts.some(item => item.id === state.selectedAdminProduct)) state.selectedAdminProduct = state.adminProducts[0]?.id || null;
   const selected = state.adminProducts.find(item => item.id === state.selectedAdminProduct);
   const published = state.adminProducts.filter(product => product.published).length;
-  const list = node('div', { class: 'panel admin-list' }, state.adminProducts.map(product => node('button', { type: 'button', class: product.id === state.selectedAdminProduct ? 'active' : '', dataset: { adminSearch: normalized([product.name,product.sku,product.brand,product.category].join(' ')) }, onclick: () => { state.selectedAdminProduct = product.id; adminProducts(root); } }, [
+  const list = node('div', { class: 'panel admin-list' }, state.adminProducts.map(product => node('button', { type: 'button', class: product.id === state.selectedAdminProduct ? 'active' : '', dataset: { adminSearch: normalized([product.name,product.model,product.sku,product.brand,product.category].join(' ')) }, onclick: () => { state.selectedAdminProduct = product.id; adminProducts(root); } }, [
     node('div', { class: 'admin-product-line' }, [node('b', { text: product.name }), node('span', { class: `publication-state ${product.published ? 'published' : ''}`, text: product.published ? 'PUBLICADO' : 'BORRADOR' })]),
-    node('div', { class: 'meta', text: `${product.sku} · ${money(productPrice(product))} · ${totalStock(product)} u.` })
+    node('div', { class: 'meta', text: `Modelo ${product.model} · ${money(productPrice(product))} · ${totalStock(product)} u.` })
   ])));
-  const search = node('input', { type: 'search', placeholder: 'Buscar por nombre, código, marca o categoría', oninput: event => { const q=normalized(event.target.value); list.querySelectorAll('[data-admin-search]').forEach(button=>button.hidden=q&&!button.dataset.adminSearch.includes(q)); } });
+  const search = node('input', { type: 'search', inputmode: 'search', enterkeyhint: 'search', placeholder: 'Buscar por nombre, modelo, marca o categoría', oninput: event => { const q=normalized(event.target.value); list.querySelectorAll('[data-admin-search]').forEach(button=>button.hidden=q&&!button.dataset.adminSearch.includes(q)); } });
   const scanButton = node('button', { class: 'button barcode-button', type: 'button', onclick: () => openBarcodeScanner(root) }, [node('span', { 'aria-hidden': 'true', text: '▤' }), node('span', { text: 'ESCANEAR CÓDIGO' })]);
   replace(root, adminTitle('Productos web', `${published} publicados de ${state.adminProducts.length}. Los artículos nuevos llegan como borrador para que puedas revisar su presentación.`), node('div', { class: 'admin-products-toolbar' }, [search, scanButton]), node('div', { class: 'admin-product-grid' }, [list, selected ? productEditor(selected, root) : node('div', { class: 'empty-state', text: 'No hay productos sincronizados.' })]));
 }
@@ -863,7 +863,7 @@ function productEditor(product, root) {
     } catch (error) { message.textContent = friendlyError(error); }
     finally { loading(false); }
   } }, [
-    node('div', { class: 'notice' }, [node('b', { text: 'Datos sincronizados' }), node('p', { text: `${product.baseName} · SKU ${product.sku} · ${product.brand} · ${product.category} · Stock ${totalStock(product)}` })]),
+    node('div', { class: 'notice' }, [node('b', { text: 'Datos sincronizados' }), node('p', { text: `${product.baseName} · Modelo ${product.model} · ${product.brand} · ${product.category} · Stock ${totalStock(product)}` })]),
     node('div', { class: 'form-grid' }, [labeledInput('Precio tarjeta / lista', { name: 'card_price', type: 'number', min: '0', step: '0.01', value: product.listPrice }), labeledInput('Precio transferencia', { name: 'transfer_price', type: 'number', min: '0', step: '0.01', value: product.transferPrice }), labeledInput('Precio efectivo', { name: 'cash_price', type: 'number', min: '0', step: '0.01', value: product.cashPrice })]),
     labeledInput('Título para la web', { name: 'web_title', value: product.name, maxlength: '160', required: true }),
     labeledInput('URL amigable (ejemplo: remera-deportiva-negra)', { name: 'slug', value: product.slug, maxlength: '180', pattern: '[a-z0-9-]+' }),
@@ -881,7 +881,18 @@ function productEditor(product, root) {
     node('label', { class: 'field' }, [node('span', { text: 'Descripción SEO' }), node('textarea', { name: 'seo_description', rows: '2', maxlength: '170', text: product.seoDescription })]),
     message, node('button', { class: 'button primary', type: 'submit', text: 'GUARDAR PRESENTACIÓN WEB' })
   ]);
-  const processFiles=async files=>{const selected=[...files].slice(0,Math.max(0,8-product.images.length));if(!selected.length)return toast('El producto ya tiene el máximo de 8 imágenes.','error');for(const file of selected)await uploadProductImage(product,file,root,false);await adminProducts(root)};
+  const processFiles=async files=>{
+    const selected=[...files].slice(0,Math.max(0,8-product.images.length));
+    if(!selected.length)return toast('El producto ya tiene el máximo de 8 imágenes.','error');
+    loading(true,selected.length>1?`Subiendo ${selected.length} imágenes…`:'Preparando y subiendo imagen…');
+    try{
+      for(const file of selected)await uploadProductImage(product,file);
+      await Promise.all([loadCatalog(true),loadCatalog(false)]);
+      toast(selected.length>1?`${selected.length} imágenes guardadas.`:'Imagen guardada.','success');
+      await adminProducts(root);
+    }catch(error){toast(friendlyError(error),'error')}
+    finally{loading(false);cameraInput.value='';galleryInput.value=''}
+  };
   const galleryInput=node('input',{class:'image-source-input',type:'file',accept:CONFIG.allowedImageTypes.join(','),multiple:true,onchange:event=>processFiles(event.target.files)});
   const cameraInput=node('input',{class:'image-source-input',type:'file',accept:'image/jpeg,image/png,image/webp',capture:'environment',onchange:event=>processFiles(event.target.files)});
   const imageActions=node('div',{class:'image-upload-actions'},[
@@ -892,22 +903,34 @@ function productEditor(product, root) {
   return node('div', {}, [node('div', { class: 'panel' }, [node('h2', { text: product.name }), form]), node('div', { class: 'panel' }, [node('h2', { text: `Imágenes (${product.images.length}/8)` }), node('p', { class: 'helper-text', text: 'Desde el celular podés tomar la foto en el momento con la cámara trasera o elegir imágenes de la galería. Se guardan en Supabase y la primera queda como portada. JPG, PNG o WebP, máximo 8 MB cada una.' }), imageActions, node('div', { class: 'image-admin-grid' }, product.images.map(image => node('div', { class: 'image-admin' }, [node('img', { src: image.url, alt: image.alt || '' }), node('button', { class: 'button danger', type: 'button', text: 'ELIMINAR', onclick: () => deleteProductImage(product, image, root) })])))])]);
 }
 
-async function uploadProductImage(product, file, root, refresh=true) {
+async function optimizeProductImage(file) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('El archivo elegido no es una imagen.');
+  const maxSide = 1800;
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => { const item = new Image(); item.onload = () => resolve(item); item.onerror = () => reject(new Error('No se pudo leer la foto. Probá tomarla nuevamente.')); item.src = sourceUrl; });
+    const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext('2d', { alpha: false }).drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .84));
+    if (!blob) throw new Error('No se pudo preparar la foto.');
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'producto'}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+  } finally { URL.revokeObjectURL(sourceUrl); }
+}
+
+async function uploadProductImage(product, file) {
   if (!file) return;
   const currentProduct=state.adminProducts.find(item=>item.id===product.id)||product;
-  if (currentProduct.images.length >= 8) return toast('El máximo es de 8 imágenes por producto.', 'error');
-  if (!CONFIG.allowedImageTypes.includes(file.type)) return toast('Formato no permitido. Usá JPG, PNG o WebP.', 'error');
-  if (file.size > CONFIG.maxUploadBytes) return toast('La imagen supera los 8 MB.', 'error');
-  loading(true, 'Subiendo imagen…');
-  try {
-    const extension = ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'})[file.type];
+  if (currentProduct.images.length >= 8) throw new Error('El máximo es de 8 imágenes por producto.');
+  const prepared = await optimizeProductImage(file);
+  if (prepared.size > CONFIG.maxUploadBytes) throw new Error('La foto sigue siendo demasiado pesada después de optimizarla.');
+    const extension = 'jpg';
     const path = `products/${product.id}/${crypto.randomUUID()}.${extension}`;
-    await api.upload('sportime-products', path, file);
+    await api.upload('sportime-products', path, prepared);
     const publicUrl = api.publicObjectUrl('sportime-products', path);
-    await api.rest('product_images', { method: 'POST', body: { product_id: product.id, storage_path: path, public_url: publicUrl, alt_text: product.name, is_primary: currentProduct.images.length === 0, sort_order: currentProduct.images.length }, prefer: 'return=representation' });
-    await Promise.all([loadCatalog(true), loadCatalog(false)]); toast('Imagen subida.', 'success'); if(refresh) await adminProducts(root);
-  } catch (error) { toast(friendlyError(error), 'error'); }
-  finally { loading(false); }
+    const created = await api.rest('product_images', { method: 'POST', body: { product_id: product.id, storage_path: path, public_url: publicUrl, alt_text: product.name, is_primary: currentProduct.images.length === 0, sort_order: currentProduct.images.length }, prefer: 'return=representation' });
+    currentProduct.images.push({ id: created[0]?.id, url: publicUrl, path, alt: product.name, primary: currentProduct.images.length === 0, sort: currentProduct.images.length });
 }
 
 async function deleteProductImage(product, image, root) {
