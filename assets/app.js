@@ -103,6 +103,7 @@ function mapProduct(row) {
   const variants = (row.product_variants || []).filter(item => item.active !== false).map(item => ({
     id: item.id,
     name: [item.size || item.name || 'Único', item.color].filter(Boolean).join(' / '),
+    barcode: String(item.barcode || ''),
     stock: Number(item.stock) || 0,
     sort: Number(item.sort_order) || 0
   })).sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
@@ -125,7 +126,7 @@ function mapProduct(row) {
 
 const catalogSelect = [
   'id','sku','name','category','subcategory','brand','list_price','cash_price','installments_3','status','active','source_id',
-  'product_variants(id,name,size,color,stock,active,sort_order)',
+  'product_variants(id,name,size,color,barcode,stock,active,sort_order)',
   'product_images(id,storage_path,public_url,alt_text,is_primary,sort_order)',
   'product_web_details(web_title,slug,description,short_description,is_published,featured,new_product,hot,size_guide_url,video_url,seo_title,seo_description,extra_data)'
 ].join(',');
@@ -733,7 +734,62 @@ async function adminProducts(root) {
     node('div', { class: 'meta', text: `${product.sku} · ${money(productPrice(product))} · ${totalStock(product)} u.` })
   ])));
   const search = node('input', { type: 'search', placeholder: 'Buscar por nombre, código, marca o categoría', oninput: event => { const q=normalized(event.target.value); list.querySelectorAll('[data-admin-search]').forEach(button=>button.hidden=q&&!button.dataset.adminSearch.includes(q)); } });
-  replace(root, adminTitle('Productos web', `${published} publicados de ${state.adminProducts.length}. Los artículos nuevos llegan como borrador para que puedas revisar su presentación.`), node('div', { class: 'admin-products-toolbar' }, search), node('div', { class: 'admin-product-grid' }, [list, selected ? productEditor(selected, root) : node('div', { class: 'empty-state', text: 'No hay productos sincronizados.' })]));
+  const scanButton = node('button', { class: 'button barcode-button', type: 'button', onclick: () => openBarcodeScanner(root) }, [node('span', { 'aria-hidden': 'true', text: '▤' }), node('span', { text: 'ESCANEAR CÓDIGO' })]);
+  replace(root, adminTitle('Productos web', `${published} publicados de ${state.adminProducts.length}. Los artículos nuevos llegan como borrador para que puedas revisar su presentación.`), node('div', { class: 'admin-products-toolbar' }, [search, scanButton]), node('div', { class: 'admin-product-grid' }, [list, selected ? productEditor(selected, root) : node('div', { class: 'empty-state', text: 'No hay productos sincronizados.' })]));
+}
+
+function findProductByBarcode(value) {
+  const code = String(value || '').trim();
+  if (!code) return null;
+  return state.adminProducts.find(product => product.sku === code || product.variants.some(variant => variant.barcode === code));
+}
+
+function openBarcodeScanner(root) {
+  let stream = null;
+  let scanning = true;
+  let detector = null;
+  const status = node('p', { class: 'scanner-status', text: 'Preparando cámara…' });
+  const video = node('video', { class: 'barcode-video', autoplay: true, muted: true, playsinline: true });
+  const manual = node('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: 'Escribí o pegá el código' });
+  const stop = () => { scanning = false; stream?.getTracks().forEach(track => track.stop()); video.srcObject = null; };
+  const selectCode = code => {
+    const product = findProductByBarcode(code);
+    if (!product) { status.className = 'scanner-status error'; status.textContent = `No se encontró el código ${code}.`; return false; }
+    stop(); state.selectedAdminProduct = product.id; dialog.close(); adminProducts(root); toast(`${product.name} encontrado.`, 'success'); return true;
+  };
+  const dialog = node('dialog', { class: 'barcode-dialog', onclose: stop }, node('div', { class: 'barcode-card' }, [
+    node('div', { class: 'scanner-head' }, [node('div', {}, [node('h2', { text: 'Escanear código de barras' }), node('p', { text: 'Apuntá la cámara al código del producto.' })]), node('button', { class: 'scanner-close', type: 'button', 'aria-label': 'Cerrar', onclick: () => dialog.close(), text: '×' })]),
+    node('div', { class: 'scanner-viewport' }, [video, node('div', { class: 'scanner-frame', 'aria-hidden': 'true' }), node('div', { class: 'scanner-line', 'aria-hidden': 'true' })]),
+    status,
+    node('form', { class: 'scanner-manual', onsubmit: event => { event.preventDefault(); selectCode(manual.value); } }, [manual, node('button', { class: 'button secondary', type: 'submit', text: 'BUSCAR CÓDIGO' })])
+  ]));
+  document.body.append(dialog);
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  dialog.showModal();
+  (async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('camera-unavailable');
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      video.srcObject = stream; await video.play();
+      if (!('BarcodeDetector' in window)) { status.textContent = 'Este navegador no permite lectura automática. Podés escribir el código debajo.'; return; }
+      const supported = await BarcodeDetector.getSupportedFormats();
+      const wanted = ['ean_13','ean_8','upc_a','upc_e','code_128'].filter(format => supported.includes(format));
+      detector = new BarcodeDetector(wanted.length ? { formats: wanted } : undefined);
+      status.textContent = 'Cámara lista. Mantené el código dentro del recuadro.';
+      const detect = async () => {
+        if (!scanning || dialog.open === false) return;
+        try {
+          const codes = await detector.detect(video);
+          if (codes[0]?.rawValue && selectCode(codes[0].rawValue)) return;
+        } catch { /* continúa intentando mientras la cámara esté abierta */ }
+        if (scanning) setTimeout(detect, 180);
+      };
+      detect();
+    } catch {
+      status.className = 'scanner-status error';
+      status.textContent = 'No se pudo abrir la cámara. Revisá el permiso del navegador o ingresá el código manualmente.';
+    }
+  })();
 }
 
 function productEditor(product, root) {
@@ -767,8 +823,15 @@ function productEditor(product, root) {
     node('label', { class: 'field' }, [node('span', { text: 'Descripción SEO' }), node('textarea', { name: 'seo_description', rows: '2', maxlength: '170', text: product.seoDescription })]),
     message, node('button', { class: 'button primary', type: 'submit', text: 'GUARDAR PRESENTACIÓN WEB' })
   ]);
-  const upload = node('input', { type: 'file', accept: CONFIG.allowedImageTypes.join(','), multiple: true, onchange: async event => { const files=[...event.target.files].slice(0,Math.max(0,8-product.images.length)); for(const file of files) await uploadProductImage(product,file,root,false); await adminProducts(root); } });
-  return node('div', {}, [node('div', { class: 'panel' }, [node('h2', { text: product.name }), form]), node('div', { class: 'panel' }, [node('h2', { text: `Imágenes (${product.images.length}/8)` }), node('p', { class: 'helper-text', text: 'Podés cargar hasta 8 imágenes por producto. Se guardan en el almacenamiento privado administrado de Supabase y la primera queda como portada. JPG, PNG o WebP, máximo 8 MB cada una.' }), upload, node('div', { class: 'image-admin-grid' }, product.images.map(image => node('div', { class: 'image-admin' }, [node('img', { src: image.url, alt: image.alt || '' }), node('button', { class: 'button danger', type: 'button', text: 'ELIMINAR', onclick: () => deleteProductImage(product, image, root) })])))])]);
+  const processFiles=async files=>{const selected=[...files].slice(0,Math.max(0,8-product.images.length));if(!selected.length)return toast('El producto ya tiene el máximo de 8 imágenes.','error');for(const file of selected)await uploadProductImage(product,file,root,false);await adminProducts(root)};
+  const galleryInput=node('input',{class:'image-source-input',type:'file',accept:CONFIG.allowedImageTypes.join(','),multiple:true,onchange:event=>processFiles(event.target.files)});
+  const cameraInput=node('input',{class:'image-source-input',type:'file',accept:'image/jpeg,image/png,image/webp',capture:'environment',onchange:event=>processFiles(event.target.files)});
+  const imageActions=node('div',{class:'image-upload-actions'},[
+    node('button',{class:'button camera-button',type:'button',onclick:()=>cameraInput.click()},[node('span',{'aria-hidden':'true',text:'📷'}),node('span',{text:'TOMAR FOTO'})]),
+    node('button',{class:'button secondary',type:'button',onclick:()=>galleryInput.click()},[node('span',{'aria-hidden':'true',text:'▧'}),node('span',{text:'ELEGIR IMÁGENES'})]),
+    cameraInput,galleryInput
+  ]);
+  return node('div', {}, [node('div', { class: 'panel' }, [node('h2', { text: product.name }), form]), node('div', { class: 'panel' }, [node('h2', { text: `Imágenes (${product.images.length}/8)` }), node('p', { class: 'helper-text', text: 'Desde el celular podés tomar la foto en el momento con la cámara trasera o elegir imágenes de la galería. Se guardan en Supabase y la primera queda como portada. JPG, PNG o WebP, máximo 8 MB cada una.' }), imageActions, node('div', { class: 'image-admin-grid' }, product.images.map(image => node('div', { class: 'image-admin' }, [node('img', { src: image.url, alt: image.alt || '' }), node('button', { class: 'button danger', type: 'button', text: 'ELIMINAR', onclick: () => deleteProductImage(product, image, root) })])))])]);
 }
 
 async function uploadProductImage(product, file, root, refresh=true) {
