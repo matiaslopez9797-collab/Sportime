@@ -197,11 +197,46 @@ function setCloudStatus(ok, message) {
 }
 
 function renderCategories() {
-  const categories = ['Todos', ...new Set(state.products.map(item => item.category).filter(Boolean))];
+  const detected = [...new Set(state.products.map(productCategory).filter(Boolean))];
+  const preferred = ['INDUMENTARIA / CALZADO', 'SHAKER', 'SUPLEMENTOS', 'ACCESORIOS'];
+  const categories = ['Todos', ...preferred.filter(category => detected.includes(category)), ...detected.filter(category => !preferred.includes(category)).sort()];
   replace($('#category-nav'), categories.map(category => node('button', {
     type: 'button', class: state.category === category ? 'active' : '', text: category,
     onclick: () => { state.category = category; location.hash = '#catalogo'; renderRoute(); }
   })));
+}
+
+function productCategory(product) {
+  return String(product.category || 'Sin categoría').replace(/\s+/g, ' ').trim().toUpperCase();
+}
+
+function publicProductSearchText(product) {
+  return normalized([product.name, product.baseName, product.brand].join(' '));
+}
+
+function hideSearchSuggestions() {
+  const box = $('#search-suggestions');
+  if (box) { box.hidden = true; box.replaceChildren(); }
+  $('#search-input')?.setAttribute('aria-expanded', 'false');
+}
+
+function renderSearchSuggestions(value) {
+  const box = $('#search-suggestions'), input = $('#search-input'), q = normalized(value);
+  if (!box || q.length < 2) return hideSearchSuggestions();
+  const matches = state.products.filter(product => publicProductSearchText(product).includes(q)).slice(0, 7);
+  if (!matches.length) {
+    replace(box, node('div', { class: 'search-suggestion-empty', text: `No encontramos productos para “${String(value).trim()}”` }));
+  } else {
+    replace(box, matches.map(product => node('button', { type: 'button', role: 'option', class: 'search-suggestion', onclick: () => {
+      state.query = ''; state.category = 'Todos'; input.value = ''; hideSearchSuggestions(); openProduct(product.id);
+    } }, [
+      node('div', { class: 'search-suggestion-image' }, product.images[0] ? node('img', { src: product.images[0].url, alt: '' }) : node('span', { text: '◈' })),
+      node('div', { class: 'search-suggestion-info' }, [node('b', { text: product.name }), node('span', { text: product.brand || 'SPORTIME' })]),
+      node('strong', { text: money(productPrice(product)) })
+    ])));
+  }
+  box.hidden = false;
+  input.setAttribute('aria-expanded', 'true');
 }
 
 function productImage(product, className = '') {
@@ -240,8 +275,8 @@ function productCard(product) {
 function filteredProducts() {
   const q = normalized(state.query);
   return state.products.filter(product => {
-    const categoryMatch = state.category === 'Todos' || product.category === state.category;
-    const text = normalized([product.name, product.baseName, product.sku, product.brand, product.category, product.subcategory].join(' '));
+    const categoryMatch = state.category === 'Todos' || productCategory(product) === state.category;
+    const text = publicProductSearchText(product);
     return categoryMatch && (!q || text.includes(q));
   });
 }
@@ -1009,9 +1044,14 @@ function renderRoute() {
 }
 
 function bindShell() {
-  $('#search-form').addEventListener('submit', event => { event.preventDefault(); state.query = $('#search-input').value.trim().slice(0,80); state.category = 'Todos'; location.hash = '#catalogo'; renderRoute(); });
+  const searchInput = $('#search-input');
+  $('#search-form').addEventListener('submit', event => { event.preventDefault(); state.query = searchInput.value.trim().slice(0,80); state.category = 'Todos'; hideSearchSuggestions(); location.hash = '#catalogo'; renderRoute(); });
+  searchInput.addEventListener('input', event => renderSearchSuggestions(event.target.value));
+  searchInput.addEventListener('focus', event => renderSearchSuggestions(event.target.value));
+  searchInput.addEventListener('keydown', event => { if (event.key === 'Escape') hideSearchSuggestions(); });
   $('#newsletter-form')?.addEventListener('submit', event => { event.preventDefault(); event.currentTarget.reset(); toast('Gracias por sumarte a la comunidad SPORTIME.', 'success'); });
   document.addEventListener('click', event => {
+    if (!event.target.closest('#search-form')) hideSearchSuggestions();
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action === 'account') openAccount();
     if (action === 'cart') openCart();
