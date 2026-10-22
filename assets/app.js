@@ -593,7 +593,21 @@ async function renderAccountPage() {
 }
 
 function checkoutSummary() {
-  return node('aside', { class: 'panel summary' }, [node('h2', { text: 'Tu compra' }), ...state.cart.map(item => node('div', { class: 'summary-line' }, [node('span', { text: `${item.quantity} × ${item.product.name}` }), node('b', { text: money(productPrice(item.product) * item.quantity) })])), node('div', { class: 'summary-line summary-total' }, [node('span', { text: 'Total' }), node('span', { text: money(cartTotal()) })]), node('p', { class: 'meta', text: 'El servidor valida nuevamente precios, cupones y stock al confirmar.' })]);
+  const items = state.cart.map(item => node('article', { class: 'checkout-product' }, [
+    node('div', { class: 'checkout-product-image' }, [
+      item.product.images[0]
+        ? node('img', { src: item.product.images[0].url, alt: item.product.name, loading: 'lazy', decoding: 'async' })
+        : node('div', { class: 'product-placeholder', 'aria-hidden': 'true', text: '◈' }),
+      node('span', { class: 'checkout-quantity', text: item.quantity })
+    ]),
+    node('div', { class: 'checkout-product-info' }, [
+      node('b', { text: item.product.name }),
+      node('span', { text: item.variant.name || 'Único' }),
+      node('small', { text: `${item.quantity} × ${money(productPrice(item.product))}` })
+    ]),
+    node('strong', { class: 'checkout-product-price', text: money(productPrice(item.product) * item.quantity) })
+  ]));
+  return node('aside', { class: 'panel summary' }, [node('h2', { text: 'Tu compra' }), node('div', { class: 'checkout-products' }, items), node('div', { class: 'summary-line summary-total' }, [node('span', { text: 'Total' }), node('span', { text: money(cartTotal()) })]), node('p', { class: 'meta', text: 'El servidor valida nuevamente precios, cupones y stock al confirmar.' })]);
 }
 
 function renderCheckout() {
