@@ -201,9 +201,13 @@ function renderCategories() {
   const preferred = ['INDUMENTARIA / CALZADO', 'SHAKER', 'SUPLEMENTOS', 'ACCESORIOS'];
   const categories = ['Todos', ...preferred.filter(category => detected.includes(category)), ...detected.filter(category => !preferred.includes(category)).sort()];
   replace($('#category-nav'), categories.map(category => node('button', {
-    type: 'button', class: state.category === category ? 'active' : '', text: category,
+    type: 'button', class: state.category === category ? 'active' : '', text: categoryLabel(category),
     onclick: () => { state.category = category; location.hash = '#catalogo'; renderRoute(); }
   })));
+}
+
+function categoryLabel(category) {
+  return category === 'INDUMENTARIA / CALZADO' ? 'INDUMENTARIA' : category;
 }
 
 function productCategory(product) {
@@ -306,7 +310,7 @@ function renderCatalog() {
   const products = filteredProducts();
   replace($('#app'), node('section', { class: 'section' }, [
     node('div', { class: 'section-head' }, [
-      node('div', {}, [node('h1', { text: state.category === 'Todos' ? 'Catálogo' : state.category }), node('p', { text: `${products.length} producto${products.length === 1 ? '' : 's'} encontrado${products.length === 1 ? '' : 's'}` })]),
+      node('div', {}, [node('h1', { text: state.category === 'Todos' ? 'Catálogo' : categoryLabel(state.category) }), node('p', { text: `${products.length} producto${products.length === 1 ? '' : 's'} encontrado${products.length === 1 ? '' : 's'}` })]),
       state.query && node('button', { class: 'button secondary', type: 'button', text: `Limpiar búsqueda “${state.query}”`, onclick: () => { state.query = ''; $('#search-input').value = ''; renderRoute(); } })
     ]),
     products.length ? node('div', { class: 'product-grid' }, products.map(productCard)) : node('div', { class: 'empty-state' }, [node('h2', { text: 'No encontramos productos' }), node('p', { text: 'Probá con otro nombre, marca o categoría.' })])
