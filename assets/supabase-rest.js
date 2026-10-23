@@ -183,6 +183,11 @@ export class SportimeApi extends EventTarget {
     return this.request(`/rest/v1/rpc/${name}`, { method: 'POST', body, token });
   }
 
+  functions(name, body = {}) {
+    if (!/^[a-z0-9_-]+$/i.test(name)) throw new ApiError('Nombre de función inválido.');
+    return this.request(`/functions/v1/${name}`, { method: 'POST', body });
+  }
+
   async upload(bucket, path, blob) {
     const safeBucket = encodeURIComponent(bucket);
     const safePath = path.split('/').map(encodeURIComponent).join('/');
