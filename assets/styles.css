@@ -5,10 +5,11 @@
   --shadow:0 18px 55px rgba(12,25,17,.12);--radius:20px;--shell:1180px;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--soft);color:var(--ink);font:16px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+html{scroll-behavior:smooth;max-width:100%;overflow-x:hidden}
+body{margin:0;max-width:100%;overflow-x:hidden;background:var(--soft);color:var(--ink);font:16px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
+button,a,input,select,textarea{touch-action:manipulation}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
 :focus-visible{outline:3px solid #4d8cff;outline-offset:3px}
@@ -93,6 +94,14 @@ dialog{border:0;padding:0;background:transparent}.modal::backdrop,.drawer::backd
 .category-nav{align-items:flex-start;overflow:visible;position:relative}.category-menu{position:relative}.category-menu summary{list-style:none;white-space:nowrap;border:1px solid #56604f;border-radius:999px;padding:8px 34px 8px 14px;color:#fff;font-weight:900;cursor:pointer;position:relative}.category-menu summary::-webkit-details-marker{display:none}.category-menu summary::after{content:"▾";position:absolute;right:13px;top:50%;transform:translateY(-50%);color:var(--green)}.category-menu[open] summary,.category-menu summary.active,.category-menu summary:hover{border-color:var(--green);background:var(--green);color:#050706}.category-menu[open] summary::after,.category-menu summary.active::after{color:#050706}.category-menu-panel{position:absolute;z-index:90;top:calc(100% + 8px);left:0;display:grid;min-width:290px;max-width:min(430px,calc(100vw - 32px));padding:9px;border:1px solid #39433d;border-radius:16px;background:#111713;box-shadow:0 20px 48px rgba(0,0,0,.4)}.category-menu-panel button{width:100%;border-radius:10px;text-align:left;white-space:normal}
 @media(max-width:760px){.header-actions{justify-self:stretch;justify-items:end}.account-links{width:auto}.category-nav{display:flex;flex-wrap:nowrap;justify-content:center;align-items:flex-start;gap:7px;overflow:visible;width:min(100% - 20px,var(--shell));padding:0 0 13px}.category-nav>button{flex:0 0 auto}.category-menu{min-width:0}.category-menu summary{max-width:calc(100vw - 105px);overflow:hidden;text-overflow:ellipsis}.category-menu-panel{left:auto;right:0;width:min(360px,calc(100vw - 22px));max-height:55vh;overflow-y:auto}.category-menu-panel button{padding:12px;font-size:13px}}
 
+@media(max-width:760px){.site-header,.site-main,main{max-width:100%;overflow-x:clip}.category-nav{justify-content:flex-start}.category-menu{flex:1;max-width:calc(100% - 78px)}.category-menu summary{max-width:100%;text-align:center}.modal,.drawer{max-width:100vw}.drawer-card,.modal-card{max-width:100%}}
+
 /* Mercado Pago permanece aislado para administradores mientras usa credenciales TEST */
 .choice.payment-test{border:2px dashed #1683e6;background:#eef7ff}.choice.payment-test b{color:#0868bd}.choice.payment-test small{display:block;margin-top:3px}
+
+/* Base mobile-first: viewport dinámico, áreas seguras y controles táctiles */
+.modal{max-height:calc(100dvh - 24px)}.modal-card{max-height:calc(100dvh - 24px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.drawer{height:100dvh;max-height:100dvh}.drawer-card{max-width:100%}.drawer-content{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}.close-button{width:44px;height:44px}.auth-tabs button{min-height:44px}.cart-line{grid-template-columns:72px minmax(0,1fr) auto}.cart-line>div{min-width:0}.cart-line h3,.choice>span{overflow-wrap:anywhere}.cart-total{gap:12px}
+@media(max-width:760px){body{min-width:0}.field input,.field select,.field textarea,.search input{font-size:16px}.button,.icon-button,.choice,.category-nav button,.category-menu summary{min-height:44px}.choice>span{min-width:0}.section{padding:26px 0}.drawer{width:100vw}.drawer-card>header{padding:calc(14px + env(safe-area-inset-top)) 16px 14px}.drawer-content{padding:16px max(16px,env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}.modal-card{padding-top:max(22px,env(safe-area-inset-top));padding-bottom:max(22px,env(safe-area-inset-bottom))}.loading-overlay{padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}}
+@media(max-width:430px){.cart-total{font-size:19px}.quantity{grid-template-columns:44px 48px 44px}.quantity button,.quantity output{min-height:44px}.auth-card{border-radius:22px}.auth-brand{padding-right:48px}.checkout-layout>.panel{padding:15px}.legal-check input,.choice input{flex:0 0 auto;width:20px;height:20px}.toast-region{left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:auto}}
+.share-product-button{display:inline-flex;align-items:center;justify-content:center;gap:7px}@media(max-width:520px){.detail-info>.button-row{display:grid;grid-template-columns:auto minmax(0,1fr)}.detail-info>.button-row .share-product-button{grid-column:1/-1;width:100%}}
 
