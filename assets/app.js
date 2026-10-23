@@ -211,8 +211,9 @@ function renderCategories() {
     type: 'button', class: state.category === category ? 'active' : '', text: categoryLabel(category),
     onclick: () => { state.category = category; location.hash = '#catalogo'; renderRoute(); }
   });
-  // "Todos" también ocupa un lugar: en mobile no mostramos más de 4 botones.
-  if (categories.length <= 3) return replace($('#category-nav'), ['Todos', ...categories].map(categoryButton));
+  // Los nombres reales pueden ser largos. Con tres o más categorías usamos el
+  // menú para que nunca ensanchen la pantalla del teléfono.
+  if (categories.length <= 2) return replace($('#category-nav'), ['Todos', ...categories].map(categoryButton));
 
   const selected = state.category !== 'Todos' && categories.includes(state.category) ? categoryLabel(state.category) : '';
   const menu = node('details', { class: 'category-menu' }, [
@@ -396,6 +397,38 @@ function openWhatsApp() {
   window.open(`https://wa.me/${number}?text=${encodeURIComponent('Hola SPORTIME, quiero realizar una consulta.')}`, '_blank', 'noopener,noreferrer');
 }
 
+function productShareKey(product) {
+  return product.slug || product.id;
+}
+
+function productShareUrl(product) {
+  const url = new URL(location.pathname, location.origin);
+  url.searchParams.set('producto', productShareKey(product));
+  url.hash = 'catalogo';
+  return url.href;
+}
+
+async function shareProduct(product) {
+  const url = productShareUrl(product);
+  const text = `¡Mirá lo que encontré!\n${product.name} - ${money(productPrice(product))} en SPORTIME.`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: `${product.name} | SPORTIME`, text, url });
+      return;
+    }
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    toast('Enlace del producto copiado.', 'success');
+  } catch (error) {
+    if (error?.name === 'AbortError') return;
+    try {
+      const helper = node('textarea', { text: `${text}\n${url}` });
+      helper.style.position = 'fixed'; helper.style.opacity = '0';
+      document.body.append(helper); helper.select(); document.execCommand('copy'); helper.remove();
+      toast('Enlace del producto copiado.', 'success');
+    } catch { toast('No se pudo compartir el producto.', 'error'); }
+  }
+}
+
 function openProduct(id) {
   const product = state.products.find(item => item.id === id);
   if (!product) return;
@@ -422,7 +455,8 @@ function openProduct(id) {
             node('output', { text: quantity, 'aria-label': 'Cantidad' }),
             node('button', { type: 'button', text: '+', 'aria-label': 'Sumar cantidad', onclick: () => { quantity = Math.min(CONFIG.maxCartQuantity, selected?.stock || 1, quantity + 1); render(); } })
           ]),
-          node('button', { class: 'button primary', type: 'button', disabled: !selected || selected.stock <= 0, text: 'AGREGAR AL CARRITO', onclick: async () => { await addToCart(product, selected, quantity); if (dialog.open) dialog.close(); } })
+          node('button', { class: 'button primary', type: 'button', disabled: !selected || selected.stock <= 0, text: 'AGREGAR AL CARRITO', onclick: async () => { await addToCart(product, selected, quantity); if (dialog.open) dialog.close(); } }),
+          node('button', { class: 'button secondary share-product-button', type: 'button', text: '↗ COMPARTIR', onclick: () => shareProduct(product) })
         ]),
         node('hr'), node('h3', { text: 'Descripción' }), node('p', { class: 'description', text: product.description || 'Consultanos para conocer más detalles de este producto.' })
       ])
@@ -728,7 +762,7 @@ async function submitCheckout(event) {
     });
     if (payment === 'mercado_pago_test') {
       loading(true, 'Abriendo Mercado Pago en modo prueba…');
-      const preference = await api.functions('create-mercadopago-preference', { order_number: result.order_number });
+      const preference = await api.functions('create-mercadopago-preference', { order_number: result.order_number, mode: 'test' });
       const checkoutUrl = preference.sandbox_init_point || preference.init_point;
       if (!checkoutUrl) throw new Error('Mercado Pago no devolvió el enlace de pago.');
       sessionStorage.removeItem('sportime.checkout.token');
@@ -1126,6 +1160,12 @@ function bindShell() {
     if (close) document.getElementById(close)?.close();
   });
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
+  $('#product-dialog').addEventListener('close', () => {
+    const url = new URL(location.href);
+    if (!url.searchParams.has('producto')) return;
+    url.searchParams.delete('producto');
+    history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  });
   window.addEventListener('hashchange', () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     renderRoute();
@@ -1147,6 +1187,15 @@ async function bootstrap() {
   try { callbackType = await api.consumeAuthCallback(); }
   catch (error) { toast(friendlyError(error), 'error'); }
   await initialLoad();
+  const sharedProduct = new URLSearchParams(location.search).get('producto');
+  if (sharedProduct) {
+    const product = state.products.find(item => item.slug === sharedProduct || item.id === sharedProduct);
+    if (product) {
+      if (location.hash !== '#catalogo') history.replaceState(null, '', `${location.pathname}${location.search}#catalogo`);
+      renderRoute();
+      openProduct(product.id);
+    } else toast('El producto compartido ya no está disponible.', 'error');
+  }
   if (callbackType === 'recovery') renderNewPassword();
   else if (callbackType) toast('Correo confirmado. Tu cuenta ya está conectada.', 'success');
 }
