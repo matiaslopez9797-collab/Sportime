@@ -211,7 +211,8 @@ function renderCategories() {
     type: 'button', class: state.category === category ? 'active' : '', text: categoryLabel(category),
     onclick: () => { state.category = category; location.hash = '#catalogo'; renderRoute(); }
   });
-  if (categories.length <= 4) return replace($('#category-nav'), ['Todos', ...categories].map(categoryButton));
+  // "Todos" también ocupa un lugar: en mobile no mostramos más de 4 botones.
+  if (categories.length <= 3) return replace($('#category-nav'), ['Todos', ...categories].map(categoryButton));
 
   const selected = state.category !== 'Todos' && categories.includes(state.category) ? categoryLabel(state.category) : '';
   const menu = node('details', { class: 'category-menu' }, [
@@ -624,6 +625,11 @@ function orderStatus(value) {
   return ({pending:'Pendiente',confirmed:'Confirmado',preparing:'Preparando',shipped:'Enviado',delivered:'Entregado',cancelled:'Cancelado'})[value] || value || 'Pendiente';
 }
 
+function orderPaymentLabel(order) {
+  if (order.delivery_data?.requested_payment === 'mercado_pago_test') return 'Mercado Pago · prueba';
+  return ({ transfer: 'Transferencia', cash: 'Efectivo' })[order.payment_method] || order.payment_method || '-';
+}
+
 function orderCard(order) {
   return node('article', { class: 'order-card' }, [
     node('div', { class: 'order-head' }, [node('div', {}, [node('b', { text: `Pedido #${order.order_number}` }), node('div', { class: 'meta', text: formatDate(order.created_at) })]), node('div', {}, [node('span', { class: `status ${order.status}`, text: orderStatus(order.status) }), node('div', { class: 'price', text: money(order.total) })])]),
@@ -711,9 +717,12 @@ async function submitCheckout(event) {
   loading(true, 'Validando stock y registrando pedido…');
   try {
     await api.rpc('update_my_sportime_profile', { p_full_name: data.get('full_name'), p_phone: data.get('phone'), p_dni: data.get('dni'), p_birth_date: state.profile.birth_date || null, p_address: data.get('billing_address') });
+    // La función SQL existente sólo admite efectivo o transferencia. Conservamos
+    // el medio solicitado por separado para iniciar y auditar el pago de prueba.
+    const rpcPayment = payment === 'mercado_pago_test' ? 'transfer' : payment;
     const result = await api.rpc('place_sportime_order_v4', {
       p_items: items,
-      p_delivery_data: { delivery, payment, address: String(data.get('shipping_address') || '').trim(), billing_address: String(data.get('billing_address') || '').trim(), notes: String(data.get('notes') || '').trim(), source: 'sportime_web_secure' },
+      p_delivery_data: { delivery, payment: rpcPayment, requested_payment: payment, address: String(data.get('shipping_address') || '').trim(), billing_address: String(data.get('billing_address') || '').trim(), notes: String(data.get('notes') || '').trim(), source: 'sportime_web_secure' },
       p_coupon_code: String(data.get('coupon') || '').trim().toUpperCase() || null,
       p_checkout_token: token
     });
@@ -980,7 +989,7 @@ async function adminOrders(root) {
       catch (error) { toast(friendlyError(error), 'error'); await adminOrders(root); }
       finally { loading(false); }
     } }, ['pending','confirmed','preparing','shipped','delivered','cancelled'].map(value => node('option', { value, selected: order.status === value, text: orderStatus(value) })));
-    body.append(node('tr', {}, [node('td', {}, [node('b', { text: `#${order.order_number}` }), node('div', { class: 'meta', text: `${order.order_items?.length || 0} líneas` }), node('button', { class:'button secondary', type:'button', text:'VER RESUMEN', onclick:()=>openOrderSummary(order) })]), node('td', {}, [node('b', { text: order.customer_name }), node('div', { class: 'meta', text: order.customer_email || '' })]), node('td', { text: money(order.total) }), node('td', { text: order.payment_method || '-' }), node('td', {}, select), node('td', { text: formatDate(order.created_at) })]));
+    body.append(node('tr', {}, [node('td', {}, [node('b', { text: `#${order.order_number}` }), node('div', { class: 'meta', text: `${order.order_items?.length || 0} líneas` }), node('button', { class:'button secondary', type:'button', text:'VER RESUMEN', onclick:()=>openOrderSummary(order) })]), node('td', {}, [node('b', { text: order.customer_name }), node('div', { class: 'meta', text: order.customer_email || '' })]), node('td', { text: money(order.total) }), node('td', { text: orderPaymentLabel(order) }), node('td', {}, select), node('td', { text: formatDate(order.created_at) })]));
   });
   table.append(body);
   replace(root, adminTitle('Pedidos', 'Los cambios de estado y reintegros de stock se validan en Supabase.'), node('div', { class: 'panel table-wrap' }, state.adminOrders.length ? table : node('div', { class: 'empty-state', text: 'Todavía no hay pedidos.' })));
@@ -1117,7 +1126,10 @@ function bindShell() {
     if (close) document.getElementById(close)?.close();
   });
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));
-  window.addEventListener('hashchange', renderRoute);
+  window.addEventListener('hashchange', () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    renderRoute();
+  });
   window.addEventListener('resize', () => { if (innerWidth > 760 && state.adminMenuOpen) setAdminMenu(false); });
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible' && Date.now() - state.lastCatalogLoad > CONFIG.catalogRefreshMs) {
