@@ -689,7 +689,8 @@ function renderCheckout() {
     node('label', { class: 'field' }, [node('span', { text: 'Indicaciones' }), node('textarea', { name: 'notes', maxlength: '500', rows: '3' })]),
     node('h3', { text: 'Forma de pago' }), node('div', { class: 'choice-list' }, [
       node('label', { class: 'choice' }, [node('input', { type: 'radio', name: 'payment', value: 'transfer', checked: true }), node('span', {}, [node('b', { text: 'Transferencia' }), node('small', { class: 'meta', text: ' Recibirás los datos al confirmar.' })])]),
-      node('label', { class: 'choice' }, [node('input', { type: 'radio', name: 'payment', value: 'cash' }), node('span', {}, [node('b', { text: 'Efectivo' }), node('small', { class: 'meta', text: ' Disponible para retiro en el local.' })])])
+      node('label', { class: 'choice' }, [node('input', { type: 'radio', name: 'payment', value: 'cash' }), node('span', {}, [node('b', { text: 'Efectivo' }), node('small', { class: 'meta', text: ' Disponible para retiro en el local.' })])]),
+      isOwner() && node('label', { class: 'choice payment-test' }, [node('input', { type: 'radio', name: 'payment', value: 'mercado_pago_test' }), node('span', {}, [node('b', { text: 'Mercado Pago · MODO PRUEBA' }), node('small', { class: 'meta', text: ' Solo visible para el administrador principal. No genera cobros reales.' })])])
     ]),
     labeledInput('Cupón de descuento', { name: 'coupon', maxlength: '40', autocapitalize: 'characters' }),
     node('label', { class: 'legal-check' }, [node('input', { name: 'terms', type: 'checkbox', required: true }), node('span', { text: 'Confirmo que los datos son correctos y acepto las condiciones de compra, cambios y privacidad.' })]),
@@ -716,6 +717,15 @@ async function submitCheckout(event) {
       p_coupon_code: String(data.get('coupon') || '').trim().toUpperCase() || null,
       p_checkout_token: token
     });
+    if (payment === 'mercado_pago_test') {
+      loading(true, 'Abriendo Mercado Pago en modo prueba…');
+      const preference = await api.functions('create-mercadopago-preference', { order_number: result.order_number });
+      const checkoutUrl = preference.sandbox_init_point || preference.init_point;
+      if (!checkoutUrl) throw new Error('Mercado Pago no devolvió el enlace de pago.');
+      sessionStorage.removeItem('sportime.checkout.token');
+      location.assign(checkoutUrl);
+      return;
+    }
     sessionStorage.removeItem('sportime.checkout.token');
     state.cart = []; updateCartCount(); await Promise.all([loadCatalog(false), loadMyOrders()]);
     renderCheckoutSuccess(result, payment);
